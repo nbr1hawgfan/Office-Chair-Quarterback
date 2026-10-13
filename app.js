@@ -1,0 +1,98 @@
+/* Office Chair QB — app shell, home, routing */
+const App = {
+  tab: 'home', liveTimer: null,
+  tabs: { home: renderHome, scores: renderScores, team: renderMyTeam, players: renderPlayers, more: renderMore },
+  go(tab) {
+    clearInterval(this.liveTimer);
+    this.tab = tab; LS.set('tab', tab);
+    qsa('#nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+    const view = qs('#view');
+    view.onclick = null; view.innerHTML = loadingHTML();
+    view.scrollTop = 0; window.scrollTo(0, 0);
+    Promise.resolve(this.tabs[tab](view)).catch(e => { view.innerHTML = errHTML(e); });
+  }
+};
+
+async function renderHome(view) {
+  const p = Prefs.get(), favs = p.favs;
+  const hr = new Date().getHours();
+  const hello = (hr < 12 ? 'Morning' : hr < 17 ? 'Afternoon' : 'Evening') + (p.name ? ', ' + p.name : '');
+  if (!favs.length) {
+    view.innerHTML = `<div class="hero-empty welcome"><img src="icons/icon-192.png" alt="" class="app-mark"><h2>Welcome to ${esc(CONFIG.APP_NAME)}</h2>
+      <p>Pick your teams and the whole app takes on your team's colors. Scores, stats, recruiting, pros from your school, trading cards and the office pick'em — all in one spot.</p>
+      <button class="btn" id="pick">Pick my teams</button></div>`;
+    qs('#pick', view).onclick = () => openTeamPicker({ title: 'Pick Your Teams' });
+    return;
+  }
+  view.innerHTML = `<h2 class="hello">${esc(hello)} 👋</h2>
+    <div id="gameDay"></div>
+    <h3 class="sec-h">My Teams</h3><div class="my-teams" id="myTeams">${favs.map(f => `<button class="mt-card" data-k="${f.lg}:${f.id}" style="--tc:#${f.c};--ta:#${f.a}">${img(f.logo, 'logo lg')}<b>${esc(f.ab || f.dn)}</b><small>${LEAGUES[f.lg].short}</small><span class="mt-next">…</span></button>`).join('')}</div>
+    <h3 class="sec-h">Live & Today</h3><div id="liveNow">${loadingHTML()}</div>
+    <div class="quick">
+      <button data-go="pickem">🏆 Pick'em</button><button data-go="rank">🔢 Polls</button><button data-go="stand">📊 Standings</button><button data-go="trivia">🧠 Trivia</button>
+    </div>`;
+  bindGameClicks(qs('#liveNow', view));
+  view.onclick = e => {
+    const c = e.target.closest('.mt-card');
+    if (c) { const [lg, id] = c.dataset.k.split(':'); LS.set('myTeamCur', { lg, id }); return App.go('team'); }
+    const q = e.target.closest('[data-go]');
+    if (q) ({ pickem: openPickem, rank: openRankings, stand: openStandings, trivia: openTrivia })[q.dataset.go]();
+    const gd = e.target.closest('[data-gd]');
+    if (gd) { const [lg, ev] = gd.dataset.gd.split(':'); openGame(lg, ev); }
+  };
+
+  // favorite teams' next/live game
+  const gameDay = [];
+  pool(favs, 4, async f => {
+    const d = await getJSON(`${SITE}${LEAGUES[f.lg].path}/teams/${f.id}`, 120);
+    const t = d.team || {}, ev = (t.nextEvent || [])[0];
+    const card = qs(`.mt-card[data-k="${f.lg}:${f.id}"] .mt-next`, view); if (!card) return;
+    const rec = (t.record?.items || [])[0]?.summary;
+    if (!ev) { card.textContent = rec || 'Off-season'; return; }
+    const { away, home } = sides(ev), st = statusOf(ev);
+    const opp = String(home.team?.id) === String(f.id) ? away : home;
+    const at = String(home.team?.id) === String(f.id) ? 'vs' : '@';
+    if (st.state === 'in') card.innerHTML = `<i class="dot"></i>${esc(scoreVal(away.score))}-${esc(scoreVal(home.score))}`;
+    else if (st.state === 'post') card.textContent = `${(away.winner && String(away.team?.id) === String(f.id)) || (home.winner && String(home.team?.id) === String(f.id)) ? 'W' : 'L'} ${scoreVal(away.score)}-${scoreVal(home.score)}`;
+    else card.textContent = `${at} ${opp.team?.abbreviation || ''} · ${sameDay(ev.date, new Date()) ? fmtTime(ev.date) : fmtDay(ev.date)}`;
+    if (st.state === 'in' || (st.state === 'pre' && sameDay(ev.date, new Date()))) gameDay.push({ f, ev, opp, at, st });
+  }).then(() => {
+    const g = qs('#gameDay', view); if (!g || !gameDay.length) return;
+    qs('#nav [data-tab="team"]').classList.add('badge');
+    g.innerHTML = gameDay.map(({ f, ev, opp, at, st }) => `<button class="gameday" data-gd="${f.lg}:${ev.id}" style="--tc:#${f.c};--ta:#${f.a}">
+      <span class="gd-tag">${st.state === 'in' ? '<i class="dot"></i> LIVE' : '🔥 GAME DAY'}</span>
+      ${img(f.logo, 'logo lg')}<b>${esc(f.dn)}</b><span>${at} ${esc(opp.team?.displayName || '')}</span><small>${st.state === 'in' ? esc(st.shortDetail || '') : esc(fmtTime(ev.date) + (broadcastOf(ev) ? ' · ' + broadcastOf(ev) : ''))}</small></button>`).join('');
+  });
+
+  // live across leagues
+  const live = qs('#liveNow', view);
+  const results = await pool(LEAGUE_ORDER, 5, async lg => ({ lg, ...(await fetchScoreboard(lg, {})) }));
+  if (!live.isConnected) return;
+  const liveGames = [], todayCounts = [];
+  results.filter(Boolean).forEach(r => {
+    const today = r.events.filter(e => sameDay(e.date, new Date()) || statusOf(e).state === 'in');
+    r.events.filter(e => statusOf(e).state === 'in').forEach(e => liveGames.push({ lg: r.lg, e }));
+    if (today.length) todayCounts.push({ lg: r.lg, n: today.length });
+  });
+  const favIds = new Set(favs.map(f => f.lg + ':' + f.id));
+  liveGames.sort((a, b) => {
+    const fa = Object.values(sides(a.e)).some(c => favIds.has(a.lg + ':' + c.team?.id)), fb = Object.values(sides(b.e)).some(c => favIds.has(b.lg + ':' + c.team?.id));
+    return fb - fa;
+  });
+  live.innerHTML = (liveGames.length ? `<div class="games">${liveGames.slice(0, 8).map(x => gameCardHTML(x.e, x.lg)).join('')}</div>` : '')
+    + (todayCounts.length ? `<div class="chips today">${todayCounts.map(c => `<button data-lg="${c.lg}">${LEAGUES[c.lg].icon} ${LEAGUES[c.lg].short} <b>${c.n}</b></button>`).join('')}</div>` : '')
+    + (!liveGames.length && !todayCounts.length ? emptyHTML('Quiet day. Check the schedule in Scores.') : '');
+  qsa('.chips.today button', live).forEach(b => b.onclick = ev => { ev.stopPropagation(); ScoreState.lg = b.dataset.lg; ScoreState.date = new Date(); ScoreState.week = null; App.go('scores'); });
+  clearInterval(App.liveTimer);
+  if (liveGames.length) App.liveTimer = setInterval(() => { if (App.tab === 'home' && !Sheets.stack.length) { clearMem(); renderHome(view); } }, 60000);
+}
+
+/* ---------- boot ---------- */
+document.addEventListener('DOMContentLoaded', () => {
+  Theme.apply(Prefs.get().theme);
+  qs('#nav').onclick = e => { const b = e.target.closest('button[data-tab]'); if (b) App.go(b.dataset.tab); };
+  qs('#hdrTheme').onclick = () => openTeamPicker();
+  qs('#hdrSearch').onclick = () => App.go('players');
+  App.go(LS.get('tab', 'home'));
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { });
+});
