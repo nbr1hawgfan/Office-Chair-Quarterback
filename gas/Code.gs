@@ -57,13 +57,29 @@ function doPost(e) {
 
 function out(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 
+
+/* ESPN fetch helpers: browser-like headers, retry 403s on ESPN's web host */
+const ESPN_OPTS = { muteHttpExceptions: true, headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36', 'Accept': 'application/json' } };
+const webHost = u => u.replace('https://site.api.espn.com/', 'https://site.web.api.espn.com/');
+function espnFetchAll(urls) {
+  const resps = UrlFetchApp.fetchAll(urls.map(u => Object.assign({ url: u }, ESPN_OPTS)));
+  const retry = [];
+  resps.forEach((r, i) => { if (r.getResponseCode() === 403) retry.push(i); });
+  if (retry.length) {
+    const again = UrlFetchApp.fetchAll(retry.map(i => Object.assign({ url: webHost(urls[i]) }, ESPN_OPTS)));
+    retry.forEach((i, k) => { resps[i] = again[k]; });
+  }
+  return resps;
+}
+function espnJSON(u) { const r = espnFetchAll([u])[0]; if (r.getResponseCode() !== 200) throw new Error('ESPN returned ' + r.getResponseCode()); return JSON.parse(r.getContentText()); }
+
 /* ---------------- ESPN proxy (for endpoints the browser blocks) ---------------- */
 function espnProxy(u, trim) {
   if (!/^https:\/\/site(\.web)?\.api\.espn\.com\//.test(u || '')) return out({ error: 'Only ESPN feeds can be proxied' });
   const cache = CacheService.getScriptCache(), key = 'px:' + Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, u + '|' + trim));
   const hit = cache.get(key);
   if (hit) return ContentService.createTextOutput(hit).setMimeType(ContentService.MimeType.JSON);
-  const r = UrlFetchApp.fetch(u, { muteHttpExceptions: true });
+  const r = espnFetchAll([u])[0];
   if (r.getResponseCode() !== 200) return out({ error: 'ESPN returned ' + r.getResponseCode() });
   let text = r.getContentText();
   if (trim === 'teams') {
@@ -120,11 +136,10 @@ function refreshPros() {
   PRO_LEAGUES.forEach(lg => {
     let teams = [];
     try {
-      const d = JSON.parse(UrlFetchApp.fetch(SITE + PATHS[lg] + '/teams?limit=100', { muteHttpExceptions: true }).getContentText());
+      const d = espnJSON(SITE + PATHS[lg] + '/teams?limit=100');
       teams = ((((d.sports || [])[0] || {}).leagues || [])[0] || {}).teams || [];
     } catch (e) { return; }
-    const reqs = teams.map(t => ({ url: SITE + PATHS[lg] + '/teams/' + t.team.id + '/roster', muteHttpExceptions: true }));
-    const resps = UrlFetchApp.fetchAll(reqs);
+    const resps = espnFetchAll(teams.map(t => SITE + PATHS[lg] + '/teams/' + t.team.id + '/roster'));
     resps.forEach((r, i) => {
       if (r.getResponseCode() !== 200) return;
       let d; try { d = JSON.parse(r.getContentText()); } catch (e) { return; }
@@ -237,7 +252,7 @@ function eventStatuses(league, ids) {
   ids.forEach(id => { const c = cache.get('ev:' + id); if (c) out[id] = JSON.parse(c); else need.push(id); });
   for (let i = 0; i < need.length; i += 30) {
     const chunk = need.slice(i, i + 30);
-    const resps = UrlFetchApp.fetchAll(chunk.map(id => ({ url: SITE + PATHS[league] + '/summary?event=' + id, muteHttpExceptions: true })));
+    const resps = espnFetchAll(chunk.map(id => SITE + PATHS[league] + '/summary?event=' + id));
     resps.forEach((r, k) => {
       const id = chunk[k];
       try {
@@ -333,4 +348,13 @@ function leaderboard() {
   const res = { rows: rowsOut, updated: new Date().toISOString() };
   try { cache.put('board', JSON.stringify(res), 180); } catch (e) { }
   return res;
+}
+
+/* Run from the editor to see whether ESPN answers this script (check the Execution log) */
+function testESPN() {
+  ['football/nfl/scoreboard', 'football/college-football/teams?limit=5', 'football/nfl/teams/8/roster'].forEach(p => {
+    const u = SITE + p;
+    const a = UrlFetchApp.fetch(u, ESPN_OPTS).getResponseCode(), b = UrlFetchApp.fetch(webHost(u), ESPN_OPTS).getResponseCode();
+    Logger.log(p + '  site.api=' + a + '  site.web.api=' + b);
+  });
 }

@@ -18,28 +18,35 @@ const LS = {
    When a direct call fails, we retry through the Apps Script proxy and remember
    that endpoint pattern so later calls go straight to the proxy. */
 const _mem = new Map();
-const _viaProxy = new Set(LS.get('proxyPatterns', []));
+const _route = LS.get('routes2', {}); // endpoint pattern → 'direct' | 'web' | 'proxy'
 const urlPattern = u => u.split('?')[0].replace(/\/\d+(?=\/|$)/g, '/#');
+async function directJSON(u) {
+  const r = await fetch(u);
+  if (!r.ok) throw new Error('Feed returned ' + r.status);
+  return r.json();
+}
 async function getJSON(url, ttlSec = 30) {
   const now = Date.now();
   const hit = _mem.get(url);
   if (hit && now - hit.t < ttlSec * 1000) return hit.d;
-  const pat = urlPattern(url), isEspn = /^https:\/\/site(\.web)?\.api\.espn\.com\//.test(url);
-  let d;
-  if (isEspn && _viaProxy.has(pat) && gasUrl()) d = await viaProxy(url);
-  else {
+  const isEspn = /^https:\/\/site(\.web)?\.api\.espn\.com\//.test(url);
+  if (!isEspn) { const d = await directJSON(url); _mem.set(url, { t: now, d }); return d; }
+  // Try the remembered route first, then: direct → ESPN web host → Apps Script proxy
+  const pat = urlPattern(url);
+  const webUrl = url.replace('https://site.api.espn.com/', 'https://site.web.api.espn.com/');
+  const routes = { direct: () => directJSON(url), web: () => directJSON(webUrl), proxy: () => viaProxy(url) };
+  const order = ['direct', 'web', 'proxy'].filter(k => k !== 'web' || webUrl !== url).filter(k => k !== 'proxy' || gasUrl());
+  if (_route[pat]) order.sort((a, b) => (b === _route[pat]) - (a === _route[pat]));
+  let lastErr;
+  for (const k of order) {
     try {
-      const r = await fetch(url);
-      if (!r.ok) throw new Error('Feed returned ' + r.status);
-      d = await r.json();
-    } catch (e) {
-      if (!isEspn || !gasUrl()) throw e;
-      d = await viaProxy(url);
-      _viaProxy.add(pat); LS.set('proxyPatterns', [..._viaProxy]);
-    }
+      const d = await routes[k]();
+      if (_route[pat] !== k) { _route[pat] = k; LS.set('routes2', _route); }
+      _mem.set(url, { t: now, d });
+      return d;
+    } catch (e) { lastErr = e; }
   }
-  _mem.set(url, { t: now, d });
-  return d;
+  throw lastErr;
 }
 async function viaProxy(url) {
   const trim = /\/teams\?/.test(url) || /\/teams$/.test(url.split('?')[0]) ? 'teams' : '';
@@ -189,13 +196,33 @@ const Prefs = {
 async function teamsFor(lg) {
   const key = 'teams:' + lg, c = LS.get(key);
   if (c && Date.now() - c.t < 7 * 864e5 && c.d.length) return c.d;
-  const d = await getJSON(SITE + LEAGUES[lg].path + '/teams?limit=1000', 3600);
-  const arr = (d.sports?.[0]?.leagues?.[0]?.teams || []).map(x => x.team).map(t => ({
-    lg, id: t.id, loc: t.location, name: t.name, dn: t.displayName, ab: t.abbreviation,
-    c: t.color || '444444', a: t.alternateColor || 'ffffff', logo: logoOf(t)
-  })).sort((a, b) => a.dn.localeCompare(b.dn));
-  LS.set(key, { t: Date.now(), d: arr });
+  let raw = [], hasColors = true;
+  try {
+    const d = await getJSON(SITE + LEAGUES[lg].path + '/teams?limit=1000', 3600);
+    raw = (d.sports?.[0]?.leagues?.[0]?.teams || []).map(x => x.team);
+  } catch (e) {
+    // Fallback: pull teams out of the standings feed (no colors there; filled in when picked)
+    const s = await getJSON(STAND + LEAGUES[lg].path + '/standings', 3600);
+    const seen = new Set();
+    const walk = n => { (n.standings?.entries || []).forEach(en => { const t = en.team; if (t && !seen.has(t.id)) { seen.add(t.id); raw.push(t); } }); (n.children || []).forEach(walk); };
+    walk(s); hasColors = false;
+    if (!raw.length) throw e;
+  }
+  const arr = raw.map(t => ({
+    lg, id: String(t.id), loc: t.location, name: t.name, dn: t.displayName, ab: t.abbreviation,
+    c: t.color || '444444', a: t.alternateColor || 'ffffff', logo: logoOf(t), nc: !hasColors || !t.color
+  })).filter(t => t.dn).sort((a, b) => a.dn.localeCompare(b.dn));
+  if (arr.length) LS.set(key, { t: Date.now(), d: arr });
   return arr;
+}
+/* Fill in a team's real colors/logo when the list came without them */
+async function completeTeam(fav) {
+  if (!fav.nc) return fav;
+  try {
+    const d = await getJSON(`${SITE}${LEAGUES[fav.lg].path}/teams/${fav.id}`, 3600);
+    const t = d.team || {};
+    return { ...fav, c: t.color || fav.c, a: t.alternateColor || fav.a, logo: logoOf(t) || fav.logo, loc: t.location || fav.loc, nc: false };
+  } catch (e) { return fav; }
 }
 function favFromTeam(lg, t) {
   return { lg, id: String(t.id), loc: t.location || t.loc, name: t.name, dn: t.displayName || t.dn,

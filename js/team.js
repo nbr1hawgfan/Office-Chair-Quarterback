@@ -34,11 +34,12 @@ function openTeamPicker(opts = {}) {
       lg = b.dataset.k; qsa('#tpLg button', ctx.body).forEach(x => x.classList.toggle('on', x === b)); load();
     };
     q.oninput = draw;
-    list.onclick = e => {
+    list.onclick = async e => {
       const f = e.target.closest('[data-fav]'), th = e.target.closest('[data-theme]');
       const id = (f || th)?.dataset.fav || (f || th)?.dataset.theme; if (!id) return;
       const t = teams.find(x => String(x.id) === String(id)); if (!t) return;
-      const fav = { lg, id: String(t.id), loc: t.loc, name: t.name, dn: t.dn, ab: t.ab, c: t.c, a: t.a, logo: t.logo };
+      const fav = await completeTeam({ lg, id: String(t.id), loc: t.loc, name: t.name, dn: t.dn, ab: t.ab, c: t.c, a: t.a, logo: t.logo, nc: t.nc });
+      delete fav.nc;
       if (f) toast(Prefs.toggleFav(fav) ? `Following ${t.dn}` : `Unfollowed ${t.dn}`);
       else { Prefs.setTheme(fav); toast(`${t.dn} colors applied`); }
       draw(); if (App.tab === 'home' || App.tab === 'team') App.go(App.tab);
