@@ -199,6 +199,7 @@ function openSettings() {
 function renderMore(view) {
   const items = [
     ['🏆', 'Office Pick\'em', 'Weekly NFL + college picks & leaderboard', openPickem],
+    ['🏈', 'Fantasy Football', 'Your ESPN league: matchups, standings, rosters', openFantasy],
     ['📊', 'Standings', 'Every league, SEC first for college', openStandings],
     ['🔢', 'Polls & Rankings', 'AP, Coaches, CFP, softball & baseball polls', openRankings],
     ['📰', 'News', 'Your teams or any league', openNews],

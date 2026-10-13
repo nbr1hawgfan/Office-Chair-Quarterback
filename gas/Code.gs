@@ -35,6 +35,7 @@ function doGet(e) {
     switch (p.action) {
       case 'ping': return out({ ok: true, app: APP });
       case 'espn': return espnProxy(p.u, p.trim);
+      case 'fantasy': return fantasyRelay(p);
       case 'pros': return out(getPros(p.college, p.collegeId));
       case 'recruits': return out(getRecruits(p.team, p.year));
       case 'portal': return out(getPortal(p.team, p.year));
@@ -94,6 +95,29 @@ function espnProxy(u, trim) {
     }) }] }] });
   }
   if (text.length < 95000) { try { cache.put(key, text, trim === 'teams' ? 21600 : 60); } catch (e) { } }
+  return ContentService.createTextOutput(text).setMimeType(ContentService.MimeType.JSON);
+}
+
+/* ---------------- ESPN Fantasy relay (private leagues) ----------------
+   Script Properties: ESPN_S2 and SWID (from your fantasy.espn.com cookies).
+   Optional FANTASY_LEAGUES = comma list of league IDs allowed through the relay. */
+function fantasyRelay(p) {
+  if (!/^\d+$/.test(p.leagueId || '') || !/^\d{4}$/.test(p.season || '')) return out({ error: 'Bad league or season' });
+  const props = PropertiesService.getScriptProperties();
+  const allow = (props.getProperty('FANTASY_LEAGUES') || '').split(',').map(s => s.trim()).filter(String);
+  if (allow.length && allow.indexOf(p.leagueId) < 0) return out({ error: 'That league isn\'t set up on the office backend yet.' });
+  const views = String(p.views || 'mTeam').split(',').filter(v => /^m[A-Za-z]+$/.test(v)).map(v => 'view=' + v).join('&');
+  const u = 'https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/' + p.season + '/segments/0/leagues/' + p.leagueId + '?' + views + (p.week ? '&scoringPeriodId=' + Number(p.week) : '');
+  const cache = CacheService.getScriptCache(), key = 'ffl:' + Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, u));
+  const hit = cache.get(key); if (hit) return ContentService.createTextOutput(hit).setMimeType(ContentService.MimeType.JSON);
+  const s2 = props.getProperty('ESPN_S2'), swid = props.getProperty('SWID');
+  const headers = Object.assign({}, ESPN_OPTS.headers);
+  if (s2 && swid) headers.Cookie = 'espn_s2=' + s2 + '; SWID=' + swid;
+  const r = UrlFetchApp.fetch(u, { muteHttpExceptions: true, headers: headers });
+  if (r.getResponseCode() === 401) return out({ error: 'Private league — add ESPN_S2 and SWID cookies to the backend (or they expired).' });
+  if (r.getResponseCode() !== 200) return out({ error: 'ESPN Fantasy returned ' + r.getResponseCode() });
+  const text = r.getContentText();
+  if (text.length < 95000) { try { cache.put(key, text, 45); } catch (e) { } }
   return ContentService.createTextOutput(text).setMimeType(ContentService.MimeType.JSON);
 }
 

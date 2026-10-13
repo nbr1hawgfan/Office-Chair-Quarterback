@@ -99,7 +99,9 @@ function toast(msg, ms = 2400) {
   const t = qs('#toast'); t.textContent = msg; t.classList.add('show');
   clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), ms);
 }
-const loadingHTML = (txt = 'Loading…') => `<div class="loading"><span class="spin"></span>${esc(txt)}</div>`;
+const loadingHTML = (txt = 'Loading…') => Theme.logo
+  ? `<div class="loading"><img class="spin-logo" src="${esc(Theme.logo)}" alt="">${esc(txt)}</div>`
+  : `<div class="loading"><span class="spin"></span>${esc(txt)}</div>`;
 const emptyHTML = txt => `<div class="empty">${esc(txt)}</div>`;
 function errHTML(e) {
   const msg = e && e.message === 'GAS_NOT_SET'
@@ -231,6 +233,7 @@ function favFromTeam(lg, t) {
 
 /* ---------- Team color theme ---------- */
 const Theme = {
+  logo: '',
   rgb(h) { h = String(h || '').replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join(''); const n = parseInt(h || '555555', 16) || 0; return [n >> 16 & 255, n >> 8 & 255, n & 255]; },
   lum([r, g, b]) { const f = v => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); }; return .2126 * f(r) + .7152 * f(g) + .0722 * f(b); },
   mix(a, b, t) { return a.map((v, i) => Math.round(v + (b[i] - v) * t)); },
@@ -254,6 +257,12 @@ const Theme = {
     const lg = qs('#hdrLogo');
     if (lg) { lg.src = t && t.logo ? t.logo : 'icons/icon-192.png'; }
     const tt = qs('#hdrTeam'); if (tt) tt.textContent = t ? t.dn : 'Pick your team';
+    // team logo everywhere: header/sheet watermarks, loader, My Team tab icon, browser tab icon
+    this.logo = t && t.logo ? t.logo : '';
+    root.setProperty('--logo', this.logo ? `url("${this.logo}")` : 'none');
+    const navIco = qs('#nav [data-tab="team"] span');
+    if (navIco) navIco.innerHTML = this.logo ? `<img src="${esc(this.logo)}" alt="" class="nav-logo">` : '⭐';
+    const fav = qs('link[rel=icon]'); if (fav) fav.href = this.logo || 'icons/icon-192.png';
   }
 };
 

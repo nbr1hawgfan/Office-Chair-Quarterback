@@ -64,7 +64,7 @@ async function renderTeamPage(root, lg, id, setTitle) {
   root.innerHTML = '';
   const head = document.createElement('div');
   head.className = 'team-hero';
-  head.style.cssText = `--tc:#${t.color || '333'};--ta:#${t.alternateColor || 'fff'}`;
+  head.style.cssText = `--tc:#${t.color || '333'};--ta:#${t.alternateColor || 'fff'};--tl:url('${logoOf(t)}')`;
   let nextHTML = '';
   if (next) {
     const { away, home } = sides(next), st = statusOf(next);

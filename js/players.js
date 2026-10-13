@@ -67,7 +67,7 @@ function openPlayer(lg, id) {
       a.age ? `Age ${a.age}` : '', a.displayExperience || (a.experience?.years != null ? `${a.experience.years} yrs exp` : ''),
       a.displayBirthPlace, a.college?.name ? `🎓 ${a.college.name}` : '', a.displayDraft
     ].filter(Boolean);
-    let html = `<div class="pl-hero" style="--tc:#${tc};--ta:#${ta}">
+    let html = `<div class="pl-hero" style="--tc:#${tc};--ta:#${ta};--tl:url('${esc(logoOf(team))}')">
       ${img(a.headshot?.href, 'pl-hs')}
       <div><small>${a.jersey ? '#' + esc(a.jersey) + ' · ' : ''}${esc(team.displayName || L.name)}</small><h2>${esc(a.displayName)}</h2>
       ${a.status?.name && a.status.name !== 'Active' ? `<i class="inj">${esc(a.status.name)}</i>` : ''}

@@ -24,19 +24,21 @@ async function renderHome(view) {
     qs('#pick', view).onclick = () => openTeamPicker({ title: 'Pick Your Teams' });
     return;
   }
-  view.innerHTML = `<h2 class="hello">${esc(hello)} 👋</h2>
+  const th = p.theme;
+  view.innerHTML = `<div class="home-hero" ${th ? `style="--tc:#${th.c};--ta:#${th.a};--tl:url('${esc(th.logo)}')"` : ''}>
+      ${th ? img(th.logo, 'logo hero-logo') : ''}<div><h2 class="hello">${esc(hello)} 👋</h2>${th ? `<small>${esc(th.dn)} · ${LEAGUES[th.lg].short}</small>` : ''}</div></div>
     <div id="gameDay"></div>
     <h3 class="sec-h">My Teams</h3><div class="my-teams" id="myTeams">${favs.map(f => `<button class="mt-card" data-k="${f.lg}:${f.id}" style="--tc:#${f.c};--ta:#${f.a}">${img(f.logo, 'logo lg')}<b>${esc(f.ab || f.dn)}</b><small>${LEAGUES[f.lg].short}</small><span class="mt-next">…</span></button>`).join('')}</div>
     <h3 class="sec-h">Live & Today</h3><div id="liveNow">${loadingHTML()}</div>
     <div class="quick">
-      <button data-go="pickem">🏆 Pick'em</button><button data-go="rank">🔢 Polls</button><button data-go="stand">📊 Standings</button><button data-go="trivia">🧠 Trivia</button>
+      <button data-go="ffl">🏈 Fantasy</button><button data-go="pickem">🏆 Pick'em</button><button data-go="rank">🔢 Polls</button><button data-go="stand">📊 Standings</button><button data-go="trivia">🧠 Trivia</button>
     </div>`;
   bindGameClicks(qs('#liveNow', view));
   view.onclick = e => {
     const c = e.target.closest('.mt-card');
     if (c) { const [lg, id] = c.dataset.k.split(':'); LS.set('myTeamCur', { lg, id }); return App.go('team'); }
     const q = e.target.closest('[data-go]');
-    if (q) ({ pickem: openPickem, rank: openRankings, stand: openStandings, trivia: openTrivia })[q.dataset.go]();
+    if (q) ({ ffl: openFantasy, pickem: openPickem, rank: openRankings, stand: openStandings, trivia: openTrivia })[q.dataset.go]();
     const gd = e.target.closest('[data-gd]');
     if (gd) { const [lg, ev] = gd.dataset.gd.split(':'); openGame(lg, ev); }
   };

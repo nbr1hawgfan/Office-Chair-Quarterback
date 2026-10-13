@@ -35,3 +35,14 @@ After code changes in GAS: Deploy → Manage deployments → edit → **New vers
 - Recruiting is football only (CFBD doesn't cover basketball recruiting).
 - Sheet tabs: `Players` (names + hashed PINs), `Picks`, `Results` (graded games), `ProAlumni`, `Meta`. To remove a player, delete their row in `Players`.
 - Change the extra pick'em schools in `js/config.js` → `PICKEM_EXTRA_SCHOOLS`.
+
+## Fantasy Football (ESPN)
+More → **Fantasy Football** (or the 🏈 button on Home). Each person enters their own league ID (the number after `leagueId=` on fantasy.espn.com). Shows matchups with live points and projections (tap for both lineups), standings, and every roster. Tap "This is my team" on Rosters to highlight yours. NFL game centers also have a **Fantasy Points** card (PPR / Half / Standard).
+
+**Public leagues** load directly. **Private leagues** go through the backend:
+1. Log into fantasy.espn.com on a computer → developer tools → Application → Cookies → `espn.com`. Copy `espn_s2` and `SWID`.
+2. Apps Script → Project Settings → Script Properties → add `ESPN_S2` and `SWID` (keep the `{ }` on SWID).
+3. Optional: `FANTASY_LEAGUES` = comma list of league IDs allowed through (otherwise any league your login can see works for anyone with the app).
+4. Deploy a New version.
+
+Your cookies only unlock leagues **you're in**. A co-worker's private league in a league you're not part of won't load unless it's public (League → Settings → "Make league viewable to public").
