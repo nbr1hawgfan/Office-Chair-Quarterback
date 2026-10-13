@@ -326,3 +326,29 @@ img.hs.sm,.hs.sm.ph{width:28px;height:28px}
 .ln-list .ln-row b{font-size:14px}.ln-list .ln-row small{font-size:12px}
 #fMine{margin:2px 0 8px}
 @media (max-width:520px){.ln-cols{grid-template-columns:1fr}}
+
+/* ---------- home tiles + league logos ---------- */
+.hdr-btns{display:flex;gap:8px}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media (min-width:640px){.tiles{grid-template-columns:repeat(4,1fr)}}
+.tile{display:flex;flex-direction:column;align-items:center;gap:4px;padding:14px 6px 12px;border-radius:16px;text-align:center;
+  background:linear-gradient(160deg,rgba(var(--p-rgb),.28),var(--card) 60%);border:1px solid var(--line);transition:transform .12s,box-shadow .12s;position:relative;overflow:hidden}
+.tile:active{transform:scale(.95)}
+.tile::after{content:"";position:absolute;inset:auto -20px -26px auto;width:70px;height:70px;background:var(--logo) center/contain no-repeat;opacity:.07}
+.tile-ico{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;font-size:26px;
+  background:radial-gradient(circle at 30% 25%,var(--p),var(--p-dark));box-shadow:0 0 0 2px var(--a),0 6px 14px rgba(0,0,0,.4)}
+.tile.logo .tile-ico{background:radial-gradient(circle at 30% 25%,#2a3040,#0f1218)}
+.tile-logo{width:36px;height:36px;object-fit:contain}
+.tile b{font-size:13px;line-height:1.15}
+.tile small{font-size:10.5px;line-height:1.2}
+.tile.hot{border-color:rgba(var(--p-rgb),.7)}
+.tile.hot .tile-ico{animation:glow 2.4s ease-in-out infinite}
+@keyframes glow{50%{box-shadow:0 0 0 2px var(--a),0 0 18px rgba(var(--p-rgb),.9)}}
+.lg-ico{width:20px;height:20px;object-fit:contain;flex:none}
+.lg-ico.em{width:auto;font-size:15px}
+.lg-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+@media (max-width:420px){.lg-grid{gap:6px}.lg-tile small{display:none}}
+.lg-tile{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px;background:var(--card);border:1px solid var(--line);border-radius:14px}
+.lg-tile b{font-size:11px}.lg-tile small{font-size:9.5px}
+.lg-big{width:34px;height:34px;object-fit:contain}
+.lg-big.em{width:auto;font-size:26px}

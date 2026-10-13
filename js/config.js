@@ -20,6 +20,8 @@ const LEAGUES = {
   nhl:   { key: 'nhl',   name: 'NHL', short: 'NHL', path: 'hockey/nhl', mode: 'day', icon: '🏒', pro: true },
   wnba:  { key: 'wnba',  name: 'WNBA', short: 'WNBA', path: 'basketball/wnba', mode: 'day', icon: '🏀', pro: true }
 };
+const LEAGUE_LOGO = k => ({ nfl: 'nfl', nba: 'nba', mlb: 'mlb', nhl: 'nhl', wnba: 'wnba' }[k]
+  ? `https://a.espncdn.com/i/teamlogos/leagues/500/${k}.png` : 'https://a.espncdn.com/i/teamlogos/leagues/500/ncaa.png');
 const LEAGUE_ORDER = ['nfl', 'cfb', 'nba', 'mbb', 'wbb', 'mlb', 'cbase', 'soft', 'nhl', 'wnba'];
 const COLLEGE_SPORTS = ['cfb', 'mbb', 'wbb', 'cbase', 'soft'];
 

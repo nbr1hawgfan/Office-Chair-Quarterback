@@ -94,6 +94,12 @@ function logoOf(t) {
 }
 const img = (src, cls = 'logo', alt = '') => src ? `<img class="${cls}" src="${esc(src)}" alt="${esc(alt)}" loading="lazy" onerror="this.style.visibility='hidden'">` : `<span class="${cls} ph"></span>`;
 
+/* League logo with emoji fallback if the image is missing */
+function lgIcon(k, cls = 'lg-ico') {
+  const L = LEAGUES[k];
+  return `<img class="${cls}" src="${LEAGUE_LOGO(k)}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;${cls} em&quot;>${L.icon}</span>'">`;
+}
+
 /* ---------- UI helpers ---------- */
 function toast(msg, ms = 2400) {
   const t = qs('#toast'); t.textContent = msg; t.classList.add('show');

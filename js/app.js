@@ -30,15 +30,16 @@ async function renderHome(view) {
     <div id="gameDay"></div>
     <h3 class="sec-h">My Teams</h3><div class="my-teams" id="myTeams">${favs.map(f => `<button class="mt-card" data-k="${f.lg}:${f.id}" style="--tc:#${f.c};--ta:#${f.a}">${img(f.logo, 'logo lg')}<b>${esc(f.ab || f.dn)}</b><small>${LEAGUES[f.lg].short}</small><span class="mt-next">…</span></button>`).join('')}</div>
     <h3 class="sec-h">Live & Today</h3><div id="liveNow">${loadingHTML()}</div>
-    <div class="quick">
-      <button data-go="ffl">🏈 Fantasy</button><button data-go="pickem">🏆 Pick'em</button><button data-go="rank">🔢 Polls</button><button data-go="stand">📊 Standings</button><button data-go="trivia">🧠 Trivia</button>
-    </div>`;
+    <h3 class="sec-h">The Clubhouse</h3>${homeTilesHTML(p)}
+    <h3 class="sec-h">Jump to a league</h3><div class="lg-grid">${LEAGUE_ORDER.map(k => `<button class="lg-tile" data-lgo="${k}">${lgIcon(k, 'lg-big')}<b>${LEAGUES[k].short}</b><small>${LEAGUES[k].college ? LEAGUES[k].icon + ' NCAA' : 'Pro'}</small></button>`).join('')}</div>`;
   bindGameClicks(qs('#liveNow', view));
   view.onclick = e => {
     const c = e.target.closest('.mt-card');
     if (c) { const [lg, id] = c.dataset.k.split(':'); LS.set('myTeamCur', { lg, id }); return App.go('team'); }
     const q = e.target.closest('[data-go]');
-    if (q) ({ ffl: openFantasy, pickem: openPickem, rank: openRankings, stand: openStandings, trivia: openTrivia })[q.dataset.go]();
+    if (q) return runTile(q.dataset.go, p);
+    const lgo = e.target.closest('[data-lgo]');
+    if (lgo) { ScoreState.lg = lgo.dataset.lgo; ScoreState.date = new Date(); ScoreState.week = null; ScoreState.seasontype = null; return App.go('scores'); }
     const gd = e.target.closest('[data-gd]');
     if (gd) { const [lg, ev] = gd.dataset.gd.split(':'); openGame(lg, ev); }
   };
@@ -82,11 +83,44 @@ async function renderHome(view) {
     return fb - fa;
   });
   live.innerHTML = (liveGames.length ? `<div class="games">${liveGames.slice(0, 8).map(x => gameCardHTML(x.e, x.lg)).join('')}</div>` : '')
-    + (todayCounts.length ? `<div class="chips today">${todayCounts.map(c => `<button data-lg="${c.lg}">${LEAGUES[c.lg].icon} ${LEAGUES[c.lg].short} <b>${c.n}</b></button>`).join('')}</div>` : '')
+    + (todayCounts.length ? `<div class="chips today">${todayCounts.map(c => `<button data-lg="${c.lg}">${lgIcon(c.lg)}${LEAGUES[c.lg].short}${LEAGUES[c.lg].college ? ' ' + LEAGUES[c.lg].icon : ''} <b>${c.n}</b></button>`).join('')}</div>` : '')
     + (!liveGames.length && !todayCounts.length ? emptyHTML('Quiet day. Check the schedule in Scores.') : '');
   qsa('.chips.today button', live).forEach(b => b.onclick = ev => { ev.stopPropagation(); ScoreState.lg = b.dataset.lg; ScoreState.date = new Date(); ScoreState.week = null; App.go('scores'); });
   clearInterval(App.liveTimer);
   if (liveGames.length) App.liveTimer = setInterval(() => { if (App.tab === 'home' && !Sheets.stack.length) { clearMem(); renderHome(view); } }, 60000);
+}
+
+/* ---------- home tiles ---------- */
+function collegeFav(p) { return [p.theme, ...p.favs].find(f => f && LEAGUES[f.lg].college); }
+function homeTilesHTML(p) {
+  const cf = collegeFav(p), cfb = [p.theme, ...p.favs].find(f => f && f.lg === 'cfb');
+  const ffl = LS.get('ffl', null), pk = LS.get('pickem', null);
+  const tiles = [
+    ['ffl', '🏈', 'Fantasy', ffl ? 'My league' : 'Connect league', 'hot'],
+    ['pickem', '🏆', "Pick'em", pk ? 'Make picks' : 'Join league', 'hot'],
+    ['scores', '📺', 'Scores', 'All leagues'],
+    cf ? ['pros', cf.logo, PRO_NICK[cf.loc] || 'Pros', cf.loc + ' in the pros', 'logo'] : null,
+    cfb ? ['recruit', cfb.logo, 'Recruiting', cfb.loc + ' commits', 'logo'] : null,
+    ['myteam', p.theme?.logo || '⭐', 'My Team', p.theme ? p.theme.ab || p.theme.dn : 'Pick a team', p.theme ? 'logo' : ''],
+    ['stand', '📊', 'Standings', 'SEC & every league'],
+    ['rank', '🔢', 'Polls', 'AP · Coaches · CFP'],
+    ['news', '📰', 'News', 'Your teams'],
+    ['players', '🃏', 'Players & Cards', 'Stats + card prices'],
+    ['trivia', '🧠', 'Trivia', 'Best: ' + LS.get('triviaBest', 0) + '/10'],
+    ['teams', '🎨', 'Teams & Colors', 'Follow · theme']
+  ].filter(Boolean);
+  return `<div class="tiles">${tiles.map(([k, ic, l, sub, kind]) => `<button class="tile ${kind || ''}" data-go="${k}">
+    <span class="tile-ico">${kind === 'logo' ? img(ic, 'tile-logo') : ic}</span><b>${esc(l)}</b><small>${esc(sub)}</small></button>`).join('')}</div>`;
+}
+function runTile(k, p) {
+  const cf = collegeFav(p), cfb = [p.theme, ...p.favs].find(f => f && f.lg === 'cfb');
+  const map = {
+    ffl: openFantasy, pickem: openPickem, stand: openStandings, rank: openRankings, news: openNews, trivia: openTrivia,
+    teams: () => openTeamPicker(), settings: openSettings,
+    scores: () => App.go('scores'), players: () => App.go('players'), myteam: () => App.go('team'),
+    pros: () => cf && openTeam(cf.lg, cf.id, 'pros'), recruit: () => cfb && openTeam('cfb', cfb.id, 'recruit')
+  };
+  (map[k] || (() => { }))();
 }
 
 /* ---------- boot ---------- */
@@ -95,6 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
   qs('#nav').onclick = e => { const b = e.target.closest('button[data-tab]'); if (b) App.go(b.dataset.tab); };
   qs('#hdrTheme').onclick = () => openTeamPicker();
   qs('#hdrSearch').onclick = () => App.go('players');
-  App.go(LS.get('tab', 'home'));
+  qs('#hdrGear').onclick = () => openSettings();
+  const t0 = LS.get('tab', 'home'); App.go(App.tabs[t0] && t0 !== 'more' ? t0 : 'home');
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { });
 });

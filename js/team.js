@@ -49,11 +49,11 @@ function openTeamPicker(opts = {}) {
 }
 
 /* ---------- Team page ---------- */
-function openTeam(lg, id) {
-  Sheets.open('Team', ctx => renderTeamPage(ctx.body, lg, id, t => ctx.setTitle(t)));
+function openTeam(lg, id, tab) {
+  Sheets.open('Team', ctx => renderTeamPage(ctx.body, lg, id, t => ctx.setTitle(t), tab));
 }
 
-async function renderTeamPage(root, lg, id, setTitle) {
+async function renderTeamPage(root, lg, id, setTitle, startTab) {
   const L = LEAGUES[lg];
   const d = await getJSON(`${SITE}${L.path}/teams/${id}`, 120);
   const t = d.team || {};
@@ -110,7 +110,7 @@ async function renderTeamPage(root, lg, id, setTitle) {
     if (k === 'news') return newsList(body, `${SITE}${L.path}/news?team=${t.id}&limit=20`);
     if (k === 'recruit') return teamRecruiting(body, t);
     if (k === 'pros') return teamPros(body, lg, t);
-  });
+  }, tabs.some(x => x.k === startTab) ? startTab : null);
 }
 
 async function teamSchedule(body, lg, t) {
