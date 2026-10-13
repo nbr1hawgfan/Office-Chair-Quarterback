@@ -34,6 +34,7 @@ function doGet(e) {
   try {
     switch (p.action) {
       case 'ping': return out({ ok: true, app: APP });
+      case 'espn': return espnProxy(p.u, p.trim);
       case 'pros': return out(getPros(p.college, p.collegeId));
       case 'recruits': return out(getRecruits(p.team, p.year));
       case 'portal': return out(getPortal(p.team, p.year));
@@ -55,6 +56,30 @@ function doPost(e) {
 }
 
 function out(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
+
+/* ---------------- ESPN proxy (for endpoints the browser blocks) ---------------- */
+function espnProxy(u, trim) {
+  if (!/^https:\/\/site(\.web)?\.api\.espn\.com\//.test(u || '')) return out({ error: 'Only ESPN feeds can be proxied' });
+  const cache = CacheService.getScriptCache(), key = 'px:' + Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, u + '|' + trim));
+  const hit = cache.get(key);
+  if (hit) return ContentService.createTextOutput(hit).setMimeType(ContentService.MimeType.JSON);
+  const r = UrlFetchApp.fetch(u, { muteHttpExceptions: true });
+  if (r.getResponseCode() !== 200) return out({ error: 'ESPN returned ' + r.getResponseCode() });
+  let text = r.getContentText();
+  if (trim === 'teams') {
+    // shrink team lists to just what the app uses
+    const d = JSON.parse(text);
+    const teams = ((((d.sports || [])[0] || {}).leagues || [])[0] || {}).teams || [];
+    text = JSON.stringify({ sports: [{ leagues: [{ teams: teams.map(x => {
+      const t = x.team || {}, logos = t.logos || [];
+      const dark = logos.find(l => (l.rel || []).indexOf('dark') >= 0);
+      return { team: { id: t.id, location: t.location, name: t.name, displayName: t.displayName, abbreviation: t.abbreviation,
+        color: t.color, alternateColor: t.alternateColor, logo: ((dark || logos[0]) || {}).href || '' } };
+    }) }] }] });
+  }
+  if (text.length < 95000) { try { cache.put(key, text, trim === 'teams' ? 21600 : 60); } catch (e) { } }
+  return ContentService.createTextOutput(text).setMimeType(ContentService.MimeType.JSON);
+}
 
 /* ---------------- setup ---------------- */
 function setup() {

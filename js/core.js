@@ -13,16 +13,39 @@ const LS = {
   del(k) { try { localStorage.removeItem('ocq_' + k); } catch (e) { } }
 };
 
-/* ---------- fetch with in-memory cache ---------- */
+/* ---------- fetch with in-memory cache + Apps Script fallback ----------
+   Some ESPN endpoints don't send CORS headers, so the browser blocks them.
+   When a direct call fails, we retry through the Apps Script proxy and remember
+   that endpoint pattern so later calls go straight to the proxy. */
 const _mem = new Map();
+const _viaProxy = new Set(LS.get('proxyPatterns', []));
+const urlPattern = u => u.split('?')[0].replace(/\/\d+(?=\/|$)/g, '/#');
 async function getJSON(url, ttlSec = 30) {
   const now = Date.now();
   const hit = _mem.get(url);
   if (hit && now - hit.t < ttlSec * 1000) return hit.d;
-  const r = await fetch(url);
-  if (!r.ok) throw new Error('Feed returned ' + r.status);
-  const d = await r.json();
+  const pat = urlPattern(url), isEspn = /^https:\/\/site(\.web)?\.api\.espn\.com\//.test(url);
+  let d;
+  if (isEspn && _viaProxy.has(pat) && gasUrl()) d = await viaProxy(url);
+  else {
+    try {
+      const r = await fetch(url);
+      if (!r.ok) throw new Error('Feed returned ' + r.status);
+      d = await r.json();
+    } catch (e) {
+      if (!isEspn || !gasUrl()) throw e;
+      d = await viaProxy(url);
+      _viaProxy.add(pat); LS.set('proxyPatterns', [..._viaProxy]);
+    }
+  }
   _mem.set(url, { t: now, d });
+  return d;
+}
+async function viaProxy(url) {
+  const trim = /\/teams\?/.test(url) || /\/teams$/.test(url.split('?')[0]) ? 'teams' : '';
+  const r = await fetch(gasUrl() + '?' + new URLSearchParams({ action: 'espn', u: url, trim }));
+  const d = await r.json();
+  if (d && d.error) throw new Error(d.error);
   return d;
 }
 function clearMem() { _mem.clear(); }
