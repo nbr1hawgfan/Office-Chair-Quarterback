@@ -79,6 +79,8 @@ function openPlayer(lg, id) {
 
     const s = ov.statistics;
     if (s?.labels && s.splits?.length) html += `<div class="card"><h4>${esc(s.displayName || 'Stats')}</h4>${statTable(s.labels, s.splits.map(x => ({ label: x.displayName, stats: x.stats })))}</div>`;
+    const pclips = clipsFrom(ov.news || []);
+    if (pclips.length) html += `<div class="card"><h4>🎬 Videos</h4>${clipRowHTML(pclips.slice(0, 10), 'p' + id)}</div>`;
     html += `<div id="plMore"></div>`;
     html += cardLinks(a.displayName, L.college || !!a.college);
     const news = ov.news || [];

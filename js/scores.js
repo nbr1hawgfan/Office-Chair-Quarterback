@@ -147,6 +147,8 @@ function openGame(lg, eventId) {
       const pc = (d.pickcenter || [])[0]; if (pc?.details) info.push(`📈 ${pc.details}${pc.overUnder ? ' · O/U ' + pc.overUnder : ''}`);
       const ss = (d.seasonseries || [])[0]; if (ss?.summary) info.push('🔁 ' + ss.summary);
       if (info.length) html += `<div class="gc-info">${info.map(i => `<span>${esc(i)}</span>`).join('')}</div>`;
+      const gclips = clipsFrom(d, { lg, ev: eventId });
+      if (gclips.length) html += `<div class="card"><h4>🎬 Highlights</h4>${clipRowHTML(gclips, 'g' + eventId)}</div>`;
       if (lg === 'cfb' && gasUrl()) html += `<div id="gcSeries">${seriesHTML || ''}</div>`;
 
       // win probability

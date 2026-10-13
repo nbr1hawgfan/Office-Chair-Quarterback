@@ -93,3 +93,11 @@ Notes: the first look at a school takes ~30 seconds (it builds game history sinc
 
 ## Light / Dark look
 Tap 🌓 in the header to flip between light and dark, or pick **Dark / Light / Match phone** in Settings. Team colors and logos carry over to both. Saved per device.
+
+## 🎬 Highlights
+ESPN posts short highlight clips for finished games, and the app plays them right inside it:
+- **Home:** a "Your team highlights" row (falls back to latest highlights across leagues) + a **Highlights** tile.
+- **Swipe feed:** full-screen, swipe up for the next clip (TikTok-style). Starts muted (phones require that for autoplay) — tap 🔇 once and sound stays on. Tap the video to pause; buttons jump to the Game Center or share the clip.
+- **Game Center:** a 🎬 Highlights card when ESPN has clips for that game.
+- **Player cards:** a 🎬 Videos row from that player's news.
+Clips usually appear a few hours after a game ends; not every game gets them (fewer for smaller college games and softball). No live game streams — those are licensed to TV networks.
