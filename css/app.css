@@ -509,3 +509,55 @@ body.signup #nav,body.signup #hdrSearch,body.signup #hdrGear,body.signup #ticker
 .stat-strip b{white-space:nowrap}
 .stat-strip:has(>div:nth-child(4)) b{font-size:19px}
 .stat-strip:has(>div:nth-child(4)) small{font-size:10px}
+
+/* ================= LIGHT LOOK ================= */
+html.light{--bg:#f2f4f8;--bg2:#e8ecf2;--card:#ffffff;--card2:#eef1f6;--line:#dde2ea;--txt:#141821;--mut:#5d6878;--win:#12a150;--loss:#d63a3a;--live:#e02424;color-scheme:light}
+html.light body{background:var(--bg)}
+html.light .card,html.light .game,html.light .menu-item,html.light .tile,html.light .lg-tile,html.light .fm-card,html.light .pk-game,html.light .tp-row,
+html.light .sc-row,html.light .ro,html.light .pro,html.light .art,html.light .rc,html.light .rv-row,html.light .post,html.light .bd-row,html.light .dp,html.light .sn,html.light .co,
+html.light .rk-row,html.light .ans,html.light .chips button,html.light .empty{box-shadow:0 1px 3px rgba(16,24,40,.07)}
+html.light .tile{background:linear-gradient(160deg,var(--p-soft,#e7eefc),#fff 65%)}
+html.light .tile.logo .tile-ico{background:radial-gradient(circle at 30% 25%,#ffffff,#e4e8ef)}
+html.light #nav{background:rgba(255,255,255,.96);box-shadow:0 -2px 12px rgba(16,24,40,.06)}
+html.light #nav button.on{color:var(--txt)}
+html.light .icon-btn{background:rgba(0,0,0,.06)}
+html.light .app-hdr .icon-btn,html.light .sheet-hd .icon-btn{background:rgba(255,255,255,.18)}
+html.light .seg button.on{background:#fff;box-shadow:inset 0 -2px 0 var(--a),0 1px 3px rgba(16,24,40,.1)}
+html.light .chips button.on{color:var(--p-ink)}
+html.light .inj{color:#a35a00;background:rgba(255,160,40,.16)}
+html.light .legend{color:#7a5a00;background:rgba(255,200,0,.22)}
+html.light .game.live .g-status,html.light .gc-st.live,html.light .tk.live .tk-st{color:#d11c1c}
+html.light .brief-on{color:#0e6b39}
+html.light .btn.danger{color:#c62828}
+html.light .btn.ghost{background:var(--card2);color:var(--txt)}
+html.light #ticker{background:#ffffff;border-bottom-color:var(--line)}
+html.light .tk{background:rgba(0,0,0,.04)}
+html.light .tk.fav{background:var(--p-soft,#e7eefc)}
+html.light .tk-tm{color:#3a4250}html.light .tk-tm b{color:#0d1016}
+html.light .stats th{background:var(--card)}
+html.light .stats tr.favrow td,html.light .rk-row.favrow{background:var(--p-soft,#e7eefc)}
+html.light .pk-team{background:var(--bg2)}
+html.light .pk-team.on{background:var(--p-soft,#e7eefc)}
+html.light .mi-ico{background:var(--p-soft,#e7eefc)}
+html.light .tally{background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+html.light .reacts button{background:#fff}
+html.light .reacts button.on{background:var(--p-soft,#e7eefc)}
+html.light .composer textarea,html.light .search,html.light .sel{background:#fff}
+html.light .thisday{background:linear-gradient(120deg,#fbf3e1,#f3e6c8);border-color:#d9c39a;color:#3a2e1a}
+html.light .thisday small{color:#8a6420}html.light .thisday .td-more{color:#7a6440}
+html.light .thisday::after{opacity:.18}
+html.light .tb-tag{color:#8a6420;background:rgba(217,170,90,.18)}
+html.light .rv-banner{background:linear-gradient(100deg,var(--tc) 0%,#2a2f3a 48%,#2a2f3a 52%,var(--tc2) 100%)}
+html.light .ap{background:var(--p-soft,#e7eefc)}
+html.light .ln-row.bench{opacity:.6}
+html.light .spin{border-color:var(--line);border-top-color:var(--accent)}
+html.light .confetti{mix-blend-mode:multiply}
+html.light .signup-card{box-shadow:0 8px 30px rgba(16,24,40,.08)}
+html.light details summary::after{color:var(--mut)}
+.hdr-btns{gap:6px;flex:none}
+.hdr-btns .icon-btn{width:34px;height:34px;font-size:16px}
+.hdr-brand{flex:1;min-width:0}
+.hdr-brand>span{min-width:0}
+.hdr-brand b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:380px){.hdr-brand b{font-size:16px;letter-spacing:1px}}
+html.light .stat-strip div{border-bottom-color:var(--accent)}

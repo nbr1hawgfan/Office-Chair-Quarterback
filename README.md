@@ -90,3 +90,6 @@ Uses the same free `CFBD_KEY` as Recruiting — nothing new to set up.
 - **💰 NIL tab** (all college sports): links to On3 valuations, roster value, collective and revenue-sharing info, plus a filtered NIL news feed. Player cards for college players get an On3 NIL link.
 
 Notes: the first look at a school takes ~30 seconds (it builds game history since `HISTORY_FROM`, default 1980) and then it's stored in the **HistoryCache** tab for good. The free CFBD tier has a monthly call limit; the app caps itself at `CFBD_MONTHLY` (default 900) calls per month — set that Script Property to match your tier. Basketball/softball history isn't freely available in this depth.
+
+## Light / Dark look
+Tap 🌓 in the header to flip between light and dark, or pick **Dark / Light / Match phone** in Settings. Team colors and logos carry over to both. Saved per device.

@@ -14,6 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/app.css">
+  <script>try{var l=JSON.parse(localStorage.getItem('ocq_look')||'"dark"');if(l==='light'||(l==='auto'&&matchMedia('(prefers-color-scheme: light)').matches))document.documentElement.classList.add('light')}catch(e){}</script>
 </head>
 <body>
   <header class="app-hdr">
@@ -21,7 +22,7 @@
       <img id="hdrLogo" src="icons/icon-192.png" alt="">
       <span><b>OFFICE CHAIR QB</b><small id="hdrTeam">Pick your team</small></span>
     </button>
-    <span class="hdr-btns"><button class="icon-btn" id="hdrSearch" aria-label="Search players">🔍</button><button class="icon-btn" id="hdrGear" aria-label="Settings">⚙️</button></span>
+    <span class="hdr-btns"><button class="icon-btn" id="hdrSearch" aria-label="Search players">🔍</button><button class="icon-btn" id="hdrLook" aria-label="Light or dark">🌓</button><button class="icon-btn" id="hdrGear" aria-label="Settings">⚙️</button></span>
   </header>
 
   <main id="view"></main>

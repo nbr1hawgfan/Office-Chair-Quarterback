@@ -139,11 +139,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!row || row.scrollWidth <= row.clientWidth || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
     row.scrollLeft += e.deltaY; e.preventDefault();
   }, { passive: false });
-  Theme.apply(Prefs.get().theme);
+  Look.apply();
   qs('#nav').onclick = e => { const b = e.target.closest('button[data-tab]'); if (b) App.go(b.dataset.tab); };
   qs('#hdrTheme').onclick = () => openTeamPicker();
   qs('#hdrSearch').onclick = () => App.go('players');
   qs('#hdrGear').onclick = () => openSettings();
+  qs('#hdrLook').onclick = () => { const next = Look.resolved() === 'light' ? 'dark' : 'light'; Look.set(next); toast(next === 'light' ? '☀️ Light mode' : '🌙 Dark mode'); };
   const t0 = LS.get('tab', 'home'); App.go(App.tabs[t0] && t0 !== 'more' ? t0 : 'home');
   GameDay.check();
   checkIn();

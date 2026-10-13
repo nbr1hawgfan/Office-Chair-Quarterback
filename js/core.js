@@ -252,14 +252,19 @@ const Theme = {
     if (this.lum(p) < 0.004) p = this.mix(p, [60, 60, 60], .5); // pure black primaries
     // readable accent text on the dark background: lighten primary until contrast is OK
     let txt = p, k = 0;
-    while (this.lum(txt) < 0.16 && k < 10) { txt = this.mix(txt, [255, 255, 255], .14); k++; }
-    if (this.lum(p) < 0.02 && this.lum(a) > 0.16) txt = a;
+    const light = document.documentElement.classList.contains('light');
+    if (light) { while (this.lum(txt) > 0.2 && k < 10) { txt = this.mix(txt, [0, 0, 0], .16); k++; } }
+    else {
+      while (this.lum(txt) < 0.16 && k < 10) { txt = this.mix(txt, [255, 255, 255], .14); k++; }
+      if (this.lum(p) < 0.02 && this.lum(a) > 0.16) txt = a;
+    }
     root.setProperty('--p', this.hex(p));
     root.setProperty('--p-dark', this.hex(this.mix(p, [8, 10, 14], .55)));
     root.setProperty('--p-ink', this.lum(p) > 0.4 ? '#101114' : '#ffffff');
     root.setProperty('--a', this.hex(a));
     root.setProperty('--accent', this.hex(txt));
     root.setProperty('--p-rgb', p.join(','));
+    if (document.documentElement.classList.contains('light')) root.setProperty('--p-soft', this.hex(this.mix(p, [255, 255, 255], .86)));
     const meta = qs('meta[name=theme-color]'); if (meta) meta.content = this.hex(this.mix(p, [8, 10, 14], .55));
     const lg = qs('#hdrLogo');
     if (lg) { lg.src = t && t.logo ? t.logo : 'icons/icon-192.png'; }
@@ -298,3 +303,12 @@ function leagueFromSearch(item) {
   return map[slug] || null;
 }
 function athleteIdFromUid(uid) { const m = /a:(\d+)/.exec(uid || ''); return m ? m[1] : null; }
+
+/* ---------- Light / Dark / Auto look ---------- */
+const Look = {
+  get() { return LS.get('look', 'dark'); },
+  resolved() { const l = this.get(); return l === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : l; },
+  apply() { document.documentElement.classList.toggle('light', this.resolved() === 'light'); Theme.apply(Prefs.get().theme); },
+  set(l) { LS.set('look', l); this.apply(); }
+};
+try { matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => Look.get() === 'auto' && Look.apply()); } catch (e) { }

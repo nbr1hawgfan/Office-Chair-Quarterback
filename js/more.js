@@ -170,6 +170,7 @@ function openSettings() {
           <label class="lbl">Your name<input class="search" id="sName" value="${esc(p.name || '')}" placeholder="First & last name"></label>
           <label class="lbl">Fan name<input class="search" id="sFan" value="${esc(p.fan || '')}" maxlength="24" placeholder="e.g. nbr1hawgfan"></label>
           <p class="hint">Pick'em & rivalry use your sign-in name${pickemCreds() ? `: <b>${esc(pickemCreds().name)}</b>` : ''}.</p></div>
+        <div class="card"><h4>Look</h4><div class="seg" id="sLook">${[['dark', '🌙 Dark'], ['light', '☀️ Light'], ['auto', '📱 Match phone']].map(([k, l]) => `<button data-look="${k}" class="${Look.get() === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
         <div class="card"><h4>Score ticker</h4><label class="chk"><input type="checkbox" id="sTicker" ${LS.get('tickerOn', true) ? 'checked' : ''}> Show the scrolling score ticker</label></div>
         <div class="card"><h4>Teams & colors</h4>
           ${p.favs.map(f => `<div class="tp-row" style="--tc:#${f.c};--ta:#${f.a}"><span class="swatch"></span>${img(f.logo)}<span class="tp-name">${esc(f.dn)}<small>${LEAGUES[f.lg].short}</small></span>
@@ -188,6 +189,7 @@ function openSettings() {
     ctx.body.onclick = async e => {
       const t = e.target;
       if (t.id === 'sAdd') return openTeamPicker();
+      const lk = t.closest('[data-look]'); if (lk) { Look.set(lk.dataset.look); qsa('#sLook button', ctx.body).forEach(b => b.classList.toggle('on', b === lk)); return; }
       if (t.id === 'sBrief') return openBrief();
       if (t.id === 'sParty') { const th = Prefs.get().theme; return confetti(th ? [`#${th.c}`, `#${th.a}`, '#ffffff'] : ['#1f6feb', '#f2c94c', '#fff']); }
       if (t.dataset.theme) { const [lg, id] = t.dataset.theme.split(':'); const f = Prefs.favs().find(x => x.lg === lg && String(x.id) === id); if (f) Prefs.setTheme(f); return draw(); }
