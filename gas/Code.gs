@@ -27,7 +27,8 @@ const SHEETS = {
   ProAlumni: ['League', 'AthleteId', 'Name', 'Position', 'TeamName', 'TeamAbbr', 'CollegeId', 'CollegeName', 'CollegeShort', 'Headshot', 'Injury'],
   Meta: ['Key', 'Value'],
   Rivals: ['Name', 'League', 'TeamId', 'TeamName', 'TeamLoc', 'Abbr', 'Logo', 'Color', 'AltColor', 'Updated'],
-  Wall: ['Id', 'Time', 'Name', 'Text', 'Ref', 'Reacts']
+  Wall: ['Id', 'Time', 'Name', 'Text', 'Ref', 'Reacts'],
+  Brief: ['Email', 'Name', 'Teams', 'Theme', 'Hour', 'Days', 'Fantasy', 'Token', 'Active', 'LastSent', 'Created']
 };
 
 /* ---------------- entry points ---------------- */
@@ -46,6 +47,7 @@ function doGet(e) {
       case 'leaderboard': checkCode(p.code); return out(leaderboard());
       case 'rivals': checkCode(p.code); return out({ rivals: getRivals() });
       case 'wall': checkCode(p.code); return out({ posts: getWall(Number(p.since) || 0) });
+      case 'briefUnsub': return briefUnsub(p.token);
       default: return out({ error: 'Unknown action' });
     }
   } catch (err) { return out({ error: String(err.message || err) }); }
@@ -59,6 +61,9 @@ function doPost(e) {
     if (b.action === 'setRival') return out(setRival(b));
     if (b.action === 'post') return out(addPost(b));
     if (b.action === 'react') return out(react(b));
+    if (b.action === 'briefSave') return out(briefSave(b));
+    if (b.action === 'briefTest') return out(briefTest(b));
+    if (b.action === 'briefStop') return out(briefStop(b));
     return out({ error: 'Unknown action' });
   } catch (err) { return out({ error: String(err.message || err) }); }
 }
@@ -135,6 +140,7 @@ function setup() {
   if (!props.getProperty('LEAGUE_CODE')) props.setProperty('LEAGUE_CODE', 'CHAIRQB');
   ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'refreshPros').forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('refreshPros').timeBased().everyDays(1).atHour(5).create();
+  installBriefTrigger();
   refreshPros();
   Logger.log('Setup done. Invite code: ' + props.getProperty('LEAGUE_CODE'));
 }
@@ -436,4 +442,179 @@ function react(b) {
     }
     throw new Error('Post not found');
   } finally { lock.releaseLock(); }
+}
+
+/* ---------------- Morning Brief email ----------------
+   Hourly trigger checks who is due (their chosen hour + day, in BRIEF_TZ, default America/Chicago)
+   and sends each subscriber a team-themed email. Uses your Gmail (≈100 emails/day on a free account). */
+const BRIEF_TZ = () => PropertiesService.getScriptProperties().getProperty('BRIEF_TZ') || 'America/Chicago';
+const APP_URL = () => PropertiesService.getScriptProperties().getProperty('APP_URL') || 'https://nbr1hawgfan.github.io/Office-Chair-Quarterback/';
+
+function installBriefTrigger() {
+  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'sendBriefs').forEach(t => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger('sendBriefs').timeBased().everyHours(1).nearMinute(2).create();
+  sh('Brief');
+}
+
+function briefRowIndex(email) {
+  const v = sh('Brief').getDataRange().getValues();
+  for (let i = 1; i < v.length; i++) if (String(v[i][0]).toLowerCase() === String(email).toLowerCase()) return { i: i + 1, row: v[i] };
+  return null;
+}
+function validEmail(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(e || '')); }
+
+function briefSave(b) {
+  checkCode(b.code);
+  if (!validEmail(b.email)) throw new Error('Enter a valid email');
+  const teams = (b.teams || []).slice(0, 8).map(t => ({ lg: t.lg, id: String(t.id), dn: t.dn, loc: t.loc, ab: t.ab, logo: t.logo, c: t.c, a: t.a }));
+  if (!teams.length) throw new Error('Follow at least one team first');
+  const hour = Math.max(0, Math.min(23, Number(b.hour) || 7));
+  const days = String(b.days || '1234567').replace(/[^1-7]/g, '') || '1234567';
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    const found = briefRowIndex(b.email), s = sh('Brief');
+    const token = found ? found.row[7] : Utilities.getUuid();
+    const row = [b.email.trim(), String(b.name || '').slice(0, 30), JSON.stringify(teams), JSON.stringify(b.theme || teams[0]), hour, days,
+      JSON.stringify(b.fantasy || null), token, true, found ? found.row[9] : '', found ? found.row[10] : new Date()];
+    if (found) s.getRange(found.i, 1, 1, row.length).setValues([row]); else s.appendRow(row);
+    return { ok: true, token: token };
+  } finally { lock.releaseLock(); }
+}
+function briefStop(b) {
+  checkCode(b.code);
+  const f = briefRowIndex(b.email); if (f) sh('Brief').getRange(f.i, 9).setValue(false);
+  return { ok: true };
+}
+function briefUnsub(token) {
+  const v = sh('Brief').getDataRange().getValues();
+  for (let i = 1; i < v.length; i++) if (token && v[i][7] === token) { sh('Brief').getRange(i + 1, 9).setValue(false); break; }
+  return HtmlService.createHtmlOutput('<div style="font-family:sans-serif;padding:40px;text-align:center"><h2>You\'re unsubscribed 👋</h2><p>No more morning briefs. You can turn it back on anytime in Office Chair QB.</p></div>');
+}
+function briefTest(b) {
+  checkCode(b.code);
+  const f = briefRowIndex(b.email); if (!f) throw new Error('Save your brief settings first');
+  const cache = CacheService.getScriptCache(), k = 'btest:' + b.email.toLowerCase();
+  if (cache.get(k)) throw new Error('Test already sent — check your inbox (and spam). Try again in a few minutes.');
+  cache.put(k, '1', 300);
+  sendBriefTo(f.row, {});
+  return { ok: true };
+}
+
+function sendBriefs() {
+  const tz = BRIEF_TZ(), now = new Date();
+  const hour = Number(Utilities.formatDate(now, tz, 'H')), dow = Utilities.formatDate(now, tz, 'u'), today = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
+  const s = sh('Brief'), v = s.getDataRange().getValues(), shared = {};
+  for (let i = 1; i < v.length; i++) {
+    const r = v[i];
+    if (!r[0] || r[8] !== true || Number(r[4]) !== hour || String(r[5]).indexOf(dow) < 0 || r[9] === today) continue;
+    if (MailApp.getRemainingDailyQuota() < 1) break;
+    try { sendBriefTo(r, shared); s.getRange(i + 1, 10).setValue(today); } catch (e) { Logger.log('Brief failed for ' + r[0] + ': ' + e); }
+  }
+}
+
+/* ---- data helpers (shared across subscribers in one run) ---- */
+function briefTeamData(t, shared) {
+  const key = t.lg + ':' + t.id; if (shared[key]) return shared[key];
+  const path = PATHS[t.lg] || ({ wbb: 'basketball/womens-college-basketball', cbase: 'baseball/college-baseball', soft: 'baseball/college-softball' })[t.lg];
+  const out = { last: null, today: null, next: null, news: [] };
+  if (!path) return (shared[key] = out);
+  const [sr, nr] = espnFetchAll([SITE + path + '/teams/' + t.id + '/schedule', SITE + path + '/news?team=' + t.id + '&limit=3']);
+  try {
+    const evs = (JSON.parse(sr.getContentText()).events || []).sort((a, b) => new Date(a.date) - new Date(b.date));
+    const now = Date.now();
+    evs.forEach(ev => {
+      const c = (ev.competitions || [])[0] || {}, cs = c.competitors || [];
+      const me = cs.find(x => String((x.team || {}).id) === String(t.id)) || {}, opp = cs.find(x => x !== me) || {};
+      const st = ((c.status || ev.status || {}).type || {});
+      const g = { date: new Date(ev.date), at: me.homeAway === 'home' ? 'vs' : '@', opp: (opp.team || {}).displayName || '', oppAb: (opp.team || {}).abbreviation || '',
+        oppLogo: (((opp.team || {}).logos || [])[0] || {}).href || '', my: sc(me.score), their: sc(opp.score), win: me.winner === true, done: st.state === 'post' || st.completed,
+        tv: ((c.broadcasts || [])[0] || {}).media ? c.broadcasts[0].media.shortName : '', venue: ((c.venue || {}).fullName) || '' };
+      if (g.done && now - g.date < 36 * 3600e3) out.last = g;
+      if (!g.done && Utilities.formatDate(g.date, BRIEF_TZ(), 'yyyyMMdd') === Utilities.formatDate(new Date(), BRIEF_TZ(), 'yyyyMMdd')) out.today = g;
+      if (!g.done && !out.next && g.date > now) out.next = g;
+    });
+  } catch (e) { }
+  try { out.news = (JSON.parse(nr.getContentText()).articles || []).slice(0, 3).map(a => ({ h: a.headline, d: a.description || '', u: ((a.links || {}).web || {}).href || '' })); } catch (e) { }
+  return (shared[key] = out);
+}
+function sc(s) { return s == null ? '' : typeof s === 'object' ? (s.displayValue != null ? s.displayValue : s.value) : s; }
+function fmtT(d) { return Utilities.formatDate(d, BRIEF_TZ(), 'h:mm a'); }
+function fmtD(d) { return Utilities.formatDate(d, BRIEF_TZ(), 'EEE, MMM d'); }
+function h(x) { return String(x == null ? '' : x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+function briefFantasy(f) {
+  if (!f || !f.leagueId) return null;
+  try {
+    const props = PropertiesService.getScriptProperties(), s2 = props.getProperty('ESPN_S2'), swid = props.getProperty('SWID');
+    const headers = Object.assign({}, ESPN_OPTS.headers); if (s2 && swid) headers.Cookie = 'espn_s2=' + s2 + '; SWID=' + swid;
+    const u = 'https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/' + f.season + '/segments/0/leagues/' + f.leagueId + '?view=mMatchupScore&view=mTeam&view=mStatus&view=mSettings';
+    const r = UrlFetchApp.fetch(u, { muteHttpExceptions: true, headers: headers }); if (r.getResponseCode() !== 200) return null;
+    const d = JSON.parse(r.getContentText()), wk = (d.status || {}).currentMatchupPeriod;
+    const teams = {}; (d.teams || []).forEach(t => teams[t.id] = t);
+    const name = t => t ? (t.name || ((t.location || '') + ' ' + (t.nickname || '')).trim()) : '';
+    const out = { league: (d.settings || {}).name || 'Fantasy', week: wk };
+    if (f.teamId) {
+      const mine = teams[f.teamId]; out.team = name(mine); out.record = mine && mine.record ? mine.record.overall.wins + '-' + mine.record.overall.losses : '';
+      const pts = sd => sd ? (sd.totalPointsLive != null ? sd.totalPointsLive : sd.totalPoints) : 0;
+      const findM = w => (d.schedule || []).find(m => m.matchupPeriodId === w && ((m.home || {}).teamId == f.teamId || (m.away || {}).teamId == f.teamId));
+      const lastM = findM(wk - 1), curM = findM(wk);
+      const line = (m, label) => { if (!m) return ''; const meH = m.home.teamId == f.teamId, me = meH ? m.home : m.away, op = meH ? m.away : m.home;
+        return label + ': ' + Number(pts(me)).toFixed(1) + ' – ' + Number(pts(op)).toFixed(1) + ' vs ' + name(teams[(op || {}).teamId]); };
+      out.lines = [line(lastM, 'Last week'), line(curM, 'This week')].filter(String);
+    }
+    return out;
+  } catch (e) { return null; }
+}
+
+function sendBriefTo(r, shared) {
+  const email = r[0], name = r[1] || 'there';
+  const teams = JSON.parse(r[2] || '[]'), th = JSON.parse(r[3] || 'null') || teams[0] || {};
+  const c = '#' + (th.c || '1f6feb'), a = '#' + (th.a || 'f2c94c');
+  const data = teams.map(t => ({ t: t, d: briefTeamData(t, shared) }));
+  // subject line from the most interesting thing
+  const winLast = data.find(x => x.d.last), gameToday = data.find(x => x.d.today);
+  let subject = '☕ Your Office Chair QB brief';
+  if (gameToday) subject = '🔥 Game day: ' + gameToday.t.ab + ' ' + gameToday.d.today.at + ' ' + gameToday.d.today.oppAb + ' · ' + fmtT(gameToday.d.today.date);
+  else if (winLast) subject = (winLast.d.last.win ? '✅ ' : '❌ ') + winLast.t.ab + (winLast.d.last.win ? ' won ' : ' lost ') + winLast.d.last.my + '-' + winLast.d.last.their;
+
+  const card = inner => '<div style="background:#171b22;border-radius:14px;padding:14px 16px;margin:12px 0;border:1px solid #262c37">' + inner + '</div>';
+  const label = t => '<div style="font:700 12px Arial;letter-spacing:1.5px;text-transform:uppercase;color:' + a + ';margin-bottom:8px">' + t + '</div>';
+  let body = '';
+  data.forEach(({ t, d }) => {
+    let inner = '<table width="100%" cellpadding="0" cellspacing="0"><tr><td width="44"><img src="' + h(t.logo) + '" width="36" height="36" style="display:block"></td>' +
+      '<td style="font:700 17px Arial;color:#fff">' + h(t.dn) + '</td></tr></table>';
+    if (d.last) inner += '<p style="margin:10px 0 0;font:15px Arial;color:#eef1f6"><b style="color:' + (d.last.win ? '#3ddc84' : '#ff5d5d') + '">' + (d.last.win ? 'W' : 'L') + ' ' + h(d.last.my) + '-' + h(d.last.their) + '</b> ' + d.last.at + ' ' + h(d.last.opp) + '</p>';
+    if (d.today) inner += '<p style="margin:10px 0 0;font:15px Arial;color:#eef1f6">🔥 <b>Today</b> ' + d.today.at + ' ' + h(d.today.opp) + ' · ' + fmtT(d.today.date) + (d.today.tv ? ' · 📺 ' + h(d.today.tv) : '') + '</p>';
+    else if (d.next) inner += '<p style="margin:10px 0 0;font:14px Arial;color:#8b93a3">Next: ' + d.next.at + ' ' + h(d.next.opp) + ' · ' + fmtD(d.next.date) + ' ' + fmtT(d.next.date) + (d.next.tv ? ' · ' + h(d.next.tv) : '') + '</p>';
+    d.news.slice(0, 2).forEach(n => { inner += '<p style="margin:10px 0 0;font:14px Arial"><a href="' + h(n.u) + '" style="color:#eef1f6;text-decoration:none">📰 ' + h(n.h) + '</a></p>'; });
+    body += card(inner);
+  });
+
+  // fantasy + pick'em + rivalry
+  const ff = briefFantasy(JSON.parse(r[6] || 'null'));
+  if (ff && ff.lines && ff.lines.length) body += card(label('🏈 ' + h(ff.league)) + '<p style="margin:0;font:15px Arial;color:#eef1f6"><b>' + h(ff.team) + '</b> (' + h(ff.record) + ')</p>' + ff.lines.map(l => '<p style="margin:6px 0 0;font:14px Arial;color:#c9d1dc">' + h(l) + '</p>').join(''));
+  try {
+    const lb = (shared.board = shared.board || leaderboard()).rows || [];
+    const i = lb.findIndex(x => String(x.name).toLowerCase() === String(name).toLowerCase());
+    if (i >= 0) body += card(label("🏆 Office Pick'em") + '<p style="margin:0;font:15px Arial;color:#eef1f6">You\'re <b>#' + (i + 1) + '</b> of ' + lb.length + ' with ' + lb[i].correct + ' correct' + (i > 0 ? ' — ' + (lb[0].correct - lb[i].correct) + ' behind ' + h(lb[0].name) : ' 👑') + '.</p>');
+  } catch (e) { }
+  try {
+    const riv = (shared.riv = shared.riv || getRivals()).filter(x => String(x.name).toLowerCase() !== String(name).toLowerCase());
+    const lines = riv.map(x => ({ x: x, d: briefTeamData(x, shared).last })).filter(o => o.d)
+      .map(o => '<p style="margin:6px 0 0;font:14px Arial;color:#c9d1dc">' + h(o.x.name) + "'s " + h(o.x.loc || o.x.dn) + ' ' + (o.d.win ? '<b style="color:#3ddc84">W</b>' : '<b style="color:#ff5d5d">L</b> 🗑️') + ' ' + h(o.d.my) + '-' + h(o.d.their) + '</p>');
+    if (lines.length) body += card(label('⚔️ Office Rivalry') + lines.join(''));
+  } catch (e) { }
+
+  const unsub = ScriptApp.getService().getUrl() + '?action=briefUnsub&token=' + encodeURIComponent(r[7]);
+  const hello = Number(Utilities.formatDate(new Date(), BRIEF_TZ(), 'H')) < 12 ? 'Morning' : Number(Utilities.formatDate(new Date(), BRIEF_TZ(), 'H')) < 17 ? 'Afternoon' : 'Evening';
+  const html = '<div style="background:#0b0d11;padding:0;margin:0"><div style="max-width:560px;margin:0 auto;font-family:Arial,sans-serif">' +
+    '<div style="background:' + c + ';background:linear-gradient(135deg,' + c + ',#0b0d11);padding:22px 18px;border-bottom:4px solid ' + a + '">' +
+    '<table width="100%" cellpadding="0" cellspacing="0"><tr><td><div style="font:700 13px Arial;letter-spacing:2px;color:rgba(255,255,255,.8)">OFFICE CHAIR QB</div>' +
+    '<div style="font:700 24px Arial;color:#fff;margin-top:4px">' + hello + ', ' + h(name) + ' 👋</div>' +
+    '<div style="font:13px Arial;color:rgba(255,255,255,.85);margin-top:4px">' + Utilities.formatDate(new Date(), BRIEF_TZ(), 'EEEE, MMMM d') + '</div></td>' +
+    '<td width="72" align="right"><img src="' + h(th.logo) + '" width="64" height="64" style="display:block"></td></tr></table></div>' +
+    '<div style="padding:4px 14px 10px">' + body +
+    '<div style="text-align:center;margin:18px 0 8px"><a href="' + h(APP_URL()) + '" style="display:inline-block;background:' + c + ';color:#fff;font:700 15px Arial;padding:12px 24px;border-radius:12px;text-decoration:none;border:2px solid ' + a + '">Open Office Chair QB</a></div>' +
+    '<p style="text-align:center;font:11px Arial;color:#8b93a3;margin:16px 0">Scores &amp; news from ESPN. <a href="' + unsub + '" style="color:#8b93a3">Unsubscribe</a></p></div></div></div>';
+  MailApp.sendEmail({ to: email, subject: subject, htmlBody: html, name: 'Office Chair QB' });
 }

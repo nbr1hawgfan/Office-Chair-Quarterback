@@ -194,10 +194,11 @@ const Prefs = {
     if (i >= 0) p.favs.splice(i, 1); else p.favs.push(t);
     if (!p.theme && p.favs.length) p.theme = p.favs[0];
     if (p.theme && !p.favs.some(f => f.lg === p.theme.lg && f.id === p.theme.id)) p.theme = p.favs[0] || null;
-    this.save(p); Theme.apply(p.theme);
+    this.save(p); Theme.apply(p.theme); this.changed();
     return i < 0;
   },
-  setTheme(t) { const p = this.get(); p.theme = t; if (!this.isFav(t.lg, t.id)) p.favs.push(t); this.save(p); Theme.apply(t); }
+  setTheme(t) { const p = this.get(); p.theme = t; if (!this.isFav(t.lg, t.id)) p.favs.push(t); this.save(p); Theme.apply(t); this.changed(); },
+  changed() { if (typeof briefSync === 'function') briefSync(); if (typeof GameDay === 'object') GameDay.check(); }
 };
 
 /* Team list per league, trimmed + cached 7 days */

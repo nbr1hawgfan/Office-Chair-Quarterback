@@ -53,3 +53,20 @@ Home screen card + **Office Rivalry** tile. Uses the same name/PIN as Pick'em.
 - **Bragging Rights** — co-workers ranked by their team's win % this season. Last place buys lunch.
 - **Trash Talk** — short posts (240 chars, one every 10 seconds) with 🔥 😂 🗑️ 👏 reactions. A wiggling 🗑️ appears next to anyone whose team just lost — tap it to start a post at them.
 - Sheet tabs added automatically: `Rivals`, `Wall`. Delete a row in `Wall` to remove a post.
+
+## Morning Brief 📬
+Home → **Morning Brief** tile (or Settings). Each person enters their email, picks a time and days, and gets a daily email in their team's colors: last night's results, today's games + TV, headlines, their fantasy matchup, pick'em rank and the office rivalry. Every email has an unsubscribe link. Changing followed teams updates the brief automatically.
+
+Setup (one time, after pasting the new `Code.gs`):
+1. Run **`installBriefTrigger`** from the editor and approve the new Gmail permission (it sends from your account).
+2. Deploy → Manage deployments → edit → **New version**.
+3. Optional Script Properties: `BRIEF_TZ` (default `America/Chicago`), `APP_URL` (the "Open app" button; default `https://nbr1hawgfan.github.io/Office-Chair-Quarterback/`).
+
+A free Gmail account can send ~100 emails a day. The `Brief` sheet tab lists subscribers; set `Active` to FALSE to stop someone.
+The brief pulls scores from ESPN on Google's servers, so it needs `testESPN` to show 200s.
+
+## Game Day Mode 🔥
+Automatic for your color team:
+- **Game day:** the home screen shows a big countdown hero (logos, TV, venue) and the header gets animated team-color stripes.
+- **Live:** a score bar pins above the bottom nav on every screen (tap for Game Center), and the browser tab shows 🔴 and the score.
+- **Win:** confetti in team colors, once per game. (Settings → "Test the win celebration" to show it off.)

@@ -403,3 +403,49 @@ img.hs.sm,.hs.sm.ph{width:28px;height:28px}
 .reacts{display:flex;gap:6px}
 .reacts button{font-size:13px;padding:3px 8px;border-radius:12px;background:var(--bg2);border:1px solid var(--line)}
 .reacts button.on{border-color:var(--a);background:rgba(var(--p-rgb),.3)}
+
+/* ---------- Game Day Mode ---------- */
+body.gd-mode .app-hdr{background:repeating-linear-gradient(115deg,var(--p) 0 22px,var(--p-dark) 22px 44px);background-size:200% 100%;animation:stripes 6s linear infinite}
+@keyframes stripes{to{background-position:-124px 0}}
+.home-hero.hide{display:none}
+.gd-hero{display:block;width:100%;position:relative;overflow:hidden;margin-bottom:12px;padding:16px 14px 12px;border-radius:18px;color:#fff;text-align:center;
+  background:radial-gradient(120% 140% at 50% 0%,var(--tc),#07080b 75%);border:2px solid var(--ta);box-shadow:0 10px 30px rgba(0,0,0,.45)}
+.gd-hero::after{content:"";position:absolute;inset:0;background:var(--tl) center/60% no-repeat;opacity:.08;pointer-events:none}
+.gd-hero>*{position:relative;z-index:1}
+.gd-banner{display:inline-block;font:800 12px Inter;letter-spacing:2px;padding:5px 12px;border-radius:20px;background:rgba(0,0,0,.4);border:1px solid var(--ta);margin-bottom:10px}
+.gd-row{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.gd-side{display:flex;flex-direction:column;align-items:center;gap:6px;width:30%}
+.gd-side b{font-family:Oswald;font-size:18px;letter-spacing:1px}
+.gd-logo{width:72px;height:72px;filter:drop-shadow(0 4px 10px rgba(0,0,0,.6));animation:bob 3s ease-in-out infinite}
+.gd-side:last-child .gd-logo{animation-delay:1.5s}
+@keyframes bob{50%{transform:translateY(-5px)}}
+.gd-mid{flex:1}
+.gd-count{font-family:Oswald;font-size:34px;font-weight:700;letter-spacing:1px;text-shadow:0 0 18px rgba(var(--p-rgb),.9)}
+.gd-score{font-family:Oswald;font-size:42px;font-weight:700;display:flex;gap:8px;justify-content:center}
+.gd-score span{opacity:.6}
+.gd-mid small,.gd-foot{color:rgba(255,255,255,.85);font-size:12px}
+.gd-foot{display:block;margin-top:10px}
+.gd-hero.won{animation:winpulse 1.6s ease-in-out 3}
+@keyframes winpulse{50%{box-shadow:0 0 40px var(--ta)}}
+#liveBar{position:fixed;left:10px;right:10px;bottom:calc(var(--nav-h) + var(--safe-b) + 8px);z-index:70;display:flex;align-items:center;gap:8px;
+  padding:9px 14px;border-radius:14px;color:#fff;background:linear-gradient(100deg,var(--tc),#0b0d11 120%);border:2px solid var(--ta);box-shadow:0 8px 24px rgba(0,0,0,.55);max-width:800px;margin:0 auto}
+#liveBar b{font-family:Oswald;font-size:20px}#liveBar span{opacity:.6}
+#liveBar small{color:rgba(255,255,255,.85);margin-left:4px;white-space:nowrap}
+#liveBar em{margin-left:auto;font-style:normal;font-size:12px;font-weight:700;opacity:.9;white-space:nowrap}
+body.has-livebar{padding-bottom:calc(var(--nav-h) + var(--safe-b) + 70px)}
+body.has-livebar .sheet-bd{padding-bottom:calc(90px + var(--safe-b))}
+body.has-livebar .sheet ~ #liveBar,body.has-livebar #liveBar{bottom:calc(var(--nav-h) + var(--safe-b) + 8px)}
+.confetti{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:200}
+
+/* ---------- Morning Brief ---------- */
+.brief-hero{position:relative;overflow:hidden;display:flex;align-items:center;gap:12px;padding:16px;border-radius:var(--r);color:#fff;margin-bottom:12px;
+  background:linear-gradient(135deg,var(--tc),#0b0d11 140%);border-bottom:3px solid var(--ta)}
+.brief-hero small{letter-spacing:2px;font-weight:700;color:rgba(255,255,255,.75);font-size:11px}
+.brief-hero h3{font-size:22px;margin:2px 0 6px}
+.brief-hero p{margin:0;font-size:13px;color:rgba(255,255,255,.85)}
+.brief-on{background:rgba(61,220,132,.12);border:1px solid rgba(61,220,132,.4);color:#bff5d6;padding:10px 12px;border-radius:12px;font-weight:600;font-size:13px}
+.chips.wrap{flex-wrap:wrap;overflow:visible}
+.chips button.day{min-width:52px;justify-content:center}
+.chk{display:flex;align-items:center;gap:8px;margin:10px 2px;font-size:14px}
+.chk input{width:18px;height:18px;accent-color:var(--p)}
+.btn.danger{color:#ff9a9a}

@@ -170,6 +170,8 @@ function openSettings() {
             <button class="icon-btn ${p.theme && p.theme.lg === f.lg && String(p.theme.id) === String(f.id) ? 'on' : ''}" data-theme="${f.lg}:${f.id}">🎨</button>
             <button class="icon-btn" data-rm="${f.lg}:${f.id}">✕</button></div>`).join('') || '<p class="hint">No teams yet.</p>'}
           <button class="btn" id="sAdd">＋ Add teams</button></div>
+        <div class="card"><h4>Morning Brief</h4><p class="hint">${LS.get('brief', {}).on ? '✅ Signed up' : 'Get your teams in your inbox every morning.'}</p><button class="btn ghost" id="sBrief">📬 Morning Brief settings</button>
+          <button class="btn ghost" id="sParty">🎉 Test the win celebration</button></div>
         <div class="card"><h4>Backend (Apps Script URL)</h4><p class="hint">Powers the office pick'em, pros-from-your-school and recruiting.</p>
           <input class="search" id="sGas" value="${esc(gasUrl())}" placeholder="https://script.google.com/macros/s/…/exec">
           <button class="btn ghost" id="sTest">Save & test</button></div>
@@ -180,6 +182,8 @@ function openSettings() {
     ctx.body.onclick = async e => {
       const t = e.target;
       if (t.id === 'sAdd') return openTeamPicker();
+      if (t.id === 'sBrief') return openBrief();
+      if (t.id === 'sParty') { const th = Prefs.get().theme; return confetti(th ? [`#${th.c}`, `#${th.a}`, '#ffffff'] : ['#1f6feb', '#f2c94c', '#fff']); }
       if (t.dataset.theme) { const [lg, id] = t.dataset.theme.split(':'); const f = Prefs.favs().find(x => x.lg === lg && String(x.id) === id); if (f) Prefs.setTheme(f); return draw(); }
       if (t.dataset.rm) { const [lg, id] = t.dataset.rm.split(':'); const f = Prefs.favs().find(x => x.lg === lg && String(x.id) === id); if (f) Prefs.toggleFav(f); return draw(); }
       if (t.id === 'sTest') {
