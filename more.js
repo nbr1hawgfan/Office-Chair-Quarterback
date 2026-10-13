@@ -164,12 +164,18 @@ function openSettings() {
     const draw = () => {
       const p = Prefs.get();
       ctx.body.innerHTML = `
-        <div class="card"><h4>Your name</h4><input class="search" id="sName" value="${esc(p.name || '')}" placeholder="Shown on the home screen"></div>
+        <div class="card"><h4>Profile</h4>
+          <label class="lbl">Your name<input class="search" id="sName" value="${esc(p.name || '')}" placeholder="First & last name"></label>
+          <label class="lbl">Fan name<input class="search" id="sFan" value="${esc(p.fan || '')}" maxlength="24" placeholder="e.g. nbr1hawgfan"></label>
+          <p class="hint">Pick'em & rivalry use your sign-in name${pickemCreds() ? `: <b>${esc(pickemCreds().name)}</b>` : ''}.</p></div>
+        <div class="card"><h4>Score ticker</h4><label class="chk"><input type="checkbox" id="sTicker" ${LS.get('tickerOn', true) ? 'checked' : ''}> Show the scrolling score ticker</label></div>
         <div class="card"><h4>Teams & colors</h4>
           ${p.favs.map(f => `<div class="tp-row" style="--tc:#${f.c};--ta:#${f.a}"><span class="swatch"></span>${img(f.logo)}<span class="tp-name">${esc(f.dn)}<small>${LEAGUES[f.lg].short}</small></span>
             <button class="icon-btn ${p.theme && p.theme.lg === f.lg && String(p.theme.id) === String(f.id) ? 'on' : ''}" data-theme="${f.lg}:${f.id}">🎨</button>
             <button class="icon-btn" data-rm="${f.lg}:${f.id}">✕</button></div>`).join('') || '<p class="hint">No teams yet.</p>'}
           <button class="btn" id="sAdd">＋ Add teams</button></div>
+        <div class="card"><h4>Morning Brief</h4><p class="hint">${LS.get('brief', {}).on ? '✅ Signed up' : 'Get your teams in your inbox every morning.'}</p><button class="btn ghost" id="sBrief">📬 Morning Brief settings</button>
+          <button class="btn ghost" id="sParty">🎉 Test the win celebration</button></div>
         <div class="card"><h4>Backend (Apps Script URL)</h4><p class="hint">Powers the office pick'em, pros-from-your-school and recruiting.</p>
           <input class="search" id="sGas" value="${esc(gasUrl())}" placeholder="https://script.google.com/macros/s/…/exec">
           <button class="btn ghost" id="sTest">Save & test</button></div>
@@ -180,6 +186,8 @@ function openSettings() {
     ctx.body.onclick = async e => {
       const t = e.target;
       if (t.id === 'sAdd') return openTeamPicker();
+      if (t.id === 'sBrief') return openBrief();
+      if (t.id === 'sParty') { const th = Prefs.get().theme; return confetti(th ? [`#${th.c}`, `#${th.a}`, '#ffffff'] : ['#1f6feb', '#f2c94c', '#fff']); }
       if (t.dataset.theme) { const [lg, id] = t.dataset.theme.split(':'); const f = Prefs.favs().find(x => x.lg === lg && String(x.id) === id); if (f) Prefs.setTheme(f); return draw(); }
       if (t.dataset.rm) { const [lg, id] = t.dataset.rm.split(':'); const f = Prefs.favs().find(x => x.lg === lg && String(x.id) === id); if (f) Prefs.toggleFav(f); return draw(); }
       if (t.id === 'sTest') {
@@ -191,7 +199,12 @@ function openSettings() {
         clearMem(); toast('Cache cleared');
       }
     };
-    ctx.body.oninput = e => { if (e.target.id === 'sName') { const p = Prefs.get(); p.name = e.target.value; Prefs.save(p); } };
+    ctx.body.oninput = e => {
+      const p = Prefs.get();
+      if (e.target.id === 'sName') { p.name = e.target.value; Prefs.save(p); }
+      if (e.target.id === 'sFan' && e.target.value.trim().length >= 3) { p.fan = e.target.value.trim(); Prefs.save(p); Theme.apply(p.theme); }
+    };
+    ctx.body.onchange = e => { if (e.target.id === 'sTicker') { LS.set('tickerOn', e.target.checked); Ticker.init(); } };
   });
 }
 
@@ -199,6 +212,7 @@ function openSettings() {
 function renderMore(view) {
   const items = [
     ['🏆', 'Office Pick\'em', 'Weekly NFL + college picks & leaderboard', openPickem],
+    ['🏈', 'Fantasy Football', 'Your ESPN league: matchups, standings, rosters', openFantasy],
     ['📊', 'Standings', 'Every league, SEC first for college', openStandings],
     ['🔢', 'Polls & Rankings', 'AP, Coaches, CFP, softball & baseball polls', openRankings],
     ['📰', 'News', 'Your teams or any league', openNews],

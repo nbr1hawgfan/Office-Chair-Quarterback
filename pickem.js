@@ -19,7 +19,7 @@ function pickemJoin(ctx) {
   ctx.body.innerHTML = `<div class="card join"><h4>Join the office league</h4>
     <p class="hint">Get the invite code from whoever runs the league. Your PIN keeps others from changing your picks.</p>
     <input class="search" id="jCode" placeholder="Invite code" autocomplete="off">
-    <input class="search" id="jName" placeholder="Your name (shown on leaderboard)" value="${esc(Prefs.get().name || '')}">
+    <input class="search" id="jName" placeholder="Your name (shown on leaderboard)" value="${esc(Prefs.get().fan || Prefs.get().name || '')}">
     <input class="search" id="jPin" placeholder="4-digit PIN" inputmode="numeric" maxlength="6">
     <button class="btn" id="jGo">Join</button></div>`;
   qs('#jGo', ctx.body).onclick = async () => {

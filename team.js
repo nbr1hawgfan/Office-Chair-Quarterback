@@ -34,11 +34,12 @@ function openTeamPicker(opts = {}) {
       lg = b.dataset.k; qsa('#tpLg button', ctx.body).forEach(x => x.classList.toggle('on', x === b)); load();
     };
     q.oninput = draw;
-    list.onclick = e => {
+    list.onclick = async e => {
       const f = e.target.closest('[data-fav]'), th = e.target.closest('[data-theme]');
       const id = (f || th)?.dataset.fav || (f || th)?.dataset.theme; if (!id) return;
       const t = teams.find(x => String(x.id) === String(id)); if (!t) return;
-      const fav = { lg, id: String(t.id), loc: t.loc, name: t.name, dn: t.dn, ab: t.ab, c: t.c, a: t.a, logo: t.logo };
+      const fav = await completeTeam({ lg, id: String(t.id), loc: t.loc, name: t.name, dn: t.dn, ab: t.ab, c: t.c, a: t.a, logo: t.logo, nc: t.nc });
+      delete fav.nc;
       if (f) toast(Prefs.toggleFav(fav) ? `Following ${t.dn}` : `Unfollowed ${t.dn}`);
       else { Prefs.setTheme(fav); toast(`${t.dn} colors applied`); }
       draw(); if (App.tab === 'home' || App.tab === 'team') App.go(App.tab);
@@ -48,11 +49,11 @@ function openTeamPicker(opts = {}) {
 }
 
 /* ---------- Team page ---------- */
-function openTeam(lg, id) {
-  Sheets.open('Team', ctx => renderTeamPage(ctx.body, lg, id, t => ctx.setTitle(t)));
+function openTeam(lg, id, tab) {
+  Sheets.open('Team', ctx => renderTeamPage(ctx.body, lg, id, t => ctx.setTitle(t), tab));
 }
 
-async function renderTeamPage(root, lg, id, setTitle) {
+async function renderTeamPage(root, lg, id, setTitle, startTab) {
   const L = LEAGUES[lg];
   const d = await getJSON(`${SITE}${L.path}/teams/${id}`, 120);
   const t = d.team || {};
@@ -63,7 +64,7 @@ async function renderTeamPage(root, lg, id, setTitle) {
   root.innerHTML = '';
   const head = document.createElement('div');
   head.className = 'team-hero';
-  head.style.cssText = `--tc:#${t.color || '333'};--ta:#${t.alternateColor || 'fff'}`;
+  head.style.cssText = `--tc:#${t.color || '333'};--ta:#${t.alternateColor || 'fff'};--tl:url('${logoOf(t)}')`;
   let nextHTML = '';
   if (next) {
     const { away, home } = sides(next), st = statusOf(next);
@@ -109,7 +110,7 @@ async function renderTeamPage(root, lg, id, setTitle) {
     if (k === 'news') return newsList(body, `${SITE}${L.path}/news?team=${t.id}&limit=20`);
     if (k === 'recruit') return teamRecruiting(body, t);
     if (k === 'pros') return teamPros(body, lg, t);
-  });
+  }, tabs.some(x => x.k === startTab) ? startTab : null);
 }
 
 async function teamSchedule(body, lg, t) {

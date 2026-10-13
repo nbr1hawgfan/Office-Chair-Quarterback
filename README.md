@@ -70,3 +70,11 @@ Automatic for your color team:
 - **Game day:** the home screen shows a big countdown hero (logos, TV, venue) and the header gets animated team-color stripes.
 - **Live:** a score bar pins above the bottom nav on every screen (tap for Game Center), and the browser tab shows 🔴 and the score.
 - **Win:** confetti in team colors, once per game. (Settings → "Test the win celebration" to show it off.)
+
+## One-time sign-in & usage log
+- First time anyone opens the app they enter **their name**, a **fan name** (e.g. `nbr1hawgfan`), the office invite code and a PIN. That single sign-in also covers Pick'em, Office Rivalry and the Morning Brief, and it's remembered on that device. On a new phone, the same fan name + PIN signs them back in.
+- The fan name shows in the header, the greeting, leaderboards and trash talk.
+- Sheet tabs: **Users** (one row per person: real name, fan name, team, device, first/last seen, open count) and **Activity** (one row per app open, at most every 20 minutes per device).
+
+## Score ticker
+A scrolling strip under the header with live, today's and last night's scores across every league. Your teams are highlighted and come first; tap a game to open it; hover/hold to pause. Turn it off in Settings.

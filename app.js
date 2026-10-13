@@ -9,6 +9,7 @@ const App = {
     const view = qs('#view');
     view.onclick = null; view.innerHTML = loadingHTML();
     view.scrollTop = 0; window.scrollTo(0, 0);
+    if (needsSignup()) return renderSignup(view);
     Promise.resolve(this.tabs[tab](view)).catch(e => { view.innerHTML = errHTML(e); });
   }
 };
@@ -16,7 +17,7 @@ const App = {
 async function renderHome(view) {
   const p = Prefs.get(), favs = p.favs;
   const hr = new Date().getHours();
-  const hello = (hr < 12 ? 'Morning' : hr < 17 ? 'Afternoon' : 'Evening') + (p.name ? ', ' + p.name : '');
+  const hello = (hr < 12 ? 'Morning' : hr < 17 ? 'Afternoon' : 'Evening') + (fanName() ? ', ' + fanName() : '');
   if (!favs.length) {
     view.innerHTML = `<div class="hero-empty welcome"><img src="icons/icon-192.png" alt="" class="app-mark"><h2>Welcome to ${esc(CONFIG.APP_NAME)}</h2>
       <p>Pick your teams and the whole app takes on your team's colors. Scores, stats, recruiting, pros from your school, trading cards and the office pick'em — all in one spot.</p>
@@ -24,19 +25,25 @@ async function renderHome(view) {
     qs('#pick', view).onclick = () => openTeamPicker({ title: 'Pick Your Teams' });
     return;
   }
-  view.innerHTML = `<h2 class="hello">${esc(hello)} 👋</h2>
+  const th = p.theme;
+  view.innerHTML = `<div id="gdHero"></div><div class="home-hero" ${th ? `style="--tc:#${th.c};--ta:#${th.a};--tl:url('${esc(th.logo)}')"` : ''}>
+      ${th ? img(th.logo, 'logo hero-logo') : ''}<div><h2 class="hello">${esc(hello)} 👋</h2>${th ? `<small>${esc(th.dn)} · ${LEAGUES[th.lg].short}</small>` : ''}</div></div>
     <div id="gameDay"></div>
+    <div id="rivalCard"></div>
     <h3 class="sec-h">My Teams</h3><div class="my-teams" id="myTeams">${favs.map(f => `<button class="mt-card" data-k="${f.lg}:${f.id}" style="--tc:#${f.c};--ta:#${f.a}">${img(f.logo, 'logo lg')}<b>${esc(f.ab || f.dn)}</b><small>${LEAGUES[f.lg].short}</small><span class="mt-next">…</span></button>`).join('')}</div>
     <h3 class="sec-h">Live & Today</h3><div id="liveNow">${loadingHTML()}</div>
-    <div class="quick">
-      <button data-go="pickem">🏆 Pick'em</button><button data-go="rank">🔢 Polls</button><button data-go="stand">📊 Standings</button><button data-go="trivia">🧠 Trivia</button>
-    </div>`;
+    <h3 class="sec-h">The Clubhouse</h3>${homeTilesHTML(p)}
+    <h3 class="sec-h">Jump to a league</h3><div class="lg-grid">${LEAGUE_ORDER.map(k => `<button class="lg-tile" data-lgo="${k}">${lgIcon(k, 'lg-big')}<b>${LEAGUES[k].short}</b><small>${LEAGUES[k].college ? LEAGUES[k].icon + ' NCAA' : 'Pro'}</small></button>`).join('')}</div>`;
   bindGameClicks(qs('#liveNow', view));
+  homeRivalryCard(qs('#rivalCard', view));
+  GameDay.renderHero(qs('#gdHero', view));
   view.onclick = e => {
     const c = e.target.closest('.mt-card');
     if (c) { const [lg, id] = c.dataset.k.split(':'); LS.set('myTeamCur', { lg, id }); return App.go('team'); }
     const q = e.target.closest('[data-go]');
-    if (q) ({ pickem: openPickem, rank: openRankings, stand: openStandings, trivia: openTrivia })[q.dataset.go]();
+    if (q) return runTile(q.dataset.go, p);
+    const lgo = e.target.closest('[data-lgo]');
+    if (lgo) { ScoreState.lg = lgo.dataset.lgo; ScoreState.date = new Date(); ScoreState.week = null; ScoreState.seasontype = null; return App.go('scores'); }
     const gd = e.target.closest('[data-gd]');
     if (gd) { const [lg, ev] = gd.dataset.gd.split(':'); openGame(lg, ev); }
   };
@@ -52,10 +59,12 @@ async function renderHome(view) {
     const { away, home } = sides(ev), st = statusOf(ev);
     const opp = String(home.team?.id) === String(f.id) ? away : home;
     const at = String(home.team?.id) === String(f.id) ? 'vs' : '@';
-    if (st.state === 'in') card.innerHTML = `<i class="dot"></i>${esc(scoreVal(away.score))}-${esc(scoreVal(home.score))}`;
-    else if (st.state === 'post') card.textContent = `${(away.winner && String(away.team?.id) === String(f.id)) || (home.winner && String(home.team?.id) === String(f.id)) ? 'W' : 'L'} ${scoreVal(away.score)}-${scoreVal(home.score)}`;
+    const me = String(home.team?.id) === String(f.id) ? home : away;
+    if (st.state === 'in') card.innerHTML = `<i class="dot"></i>${esc(scoreVal(me.score))}-${esc(scoreVal(opp.score))}`;
+    else if (st.state === 'post') card.textContent = `${me.winner ? 'W' : 'L'} ${scoreVal(me.score)}-${scoreVal(opp.score)}`;
     else card.textContent = `${at} ${opp.team?.abbreviation || ''} · ${sameDay(ev.date, new Date()) ? fmtTime(ev.date) : fmtDay(ev.date)}`;
-    if (st.state === 'in' || (st.state === 'pre' && sameDay(ev.date, new Date()))) gameDay.push({ f, ev, opp, at, st });
+    const isTheme = p.theme && p.theme.lg === f.lg && String(p.theme.id) === String(f.id); // theme team gets the big Game Day hero instead
+    if (!isTheme && (st.state === 'in' || (st.state === 'pre' && sameDay(ev.date, new Date())))) gameDay.push({ f, ev, opp, at, st });
   }).then(() => {
     const g = qs('#gameDay', view); if (!g || !gameDay.length) return;
     qs('#nav [data-tab="team"]').classList.add('badge');
@@ -80,19 +89,63 @@ async function renderHome(view) {
     return fb - fa;
   });
   live.innerHTML = (liveGames.length ? `<div class="games">${liveGames.slice(0, 8).map(x => gameCardHTML(x.e, x.lg)).join('')}</div>` : '')
-    + (todayCounts.length ? `<div class="chips today">${todayCounts.map(c => `<button data-lg="${c.lg}">${LEAGUES[c.lg].icon} ${LEAGUES[c.lg].short} <b>${c.n}</b></button>`).join('')}</div>` : '')
+    + (todayCounts.length ? `<div class="chips today">${todayCounts.map(c => `<button data-lg="${c.lg}">${lgIcon(c.lg)}${LEAGUES[c.lg].short}${LEAGUES[c.lg].college ? ' ' + LEAGUES[c.lg].icon : ''} <b>${c.n}</b></button>`).join('')}</div>` : '')
     + (!liveGames.length && !todayCounts.length ? emptyHTML('Quiet day. Check the schedule in Scores.') : '');
   qsa('.chips.today button', live).forEach(b => b.onclick = ev => { ev.stopPropagation(); ScoreState.lg = b.dataset.lg; ScoreState.date = new Date(); ScoreState.week = null; App.go('scores'); });
   clearInterval(App.liveTimer);
   if (liveGames.length) App.liveTimer = setInterval(() => { if (App.tab === 'home' && !Sheets.stack.length) { clearMem(); renderHome(view); } }, 60000);
 }
 
+/* ---------- home tiles ---------- */
+function collegeFav(p) { return [p.theme, ...p.favs].find(f => f && LEAGUES[f.lg].college); }
+function homeTilesHTML(p) {
+  const cf = collegeFav(p), cfb = [p.theme, ...p.favs].find(f => f && f.lg === 'cfb');
+  const ffl = LS.get('ffl', null), pk = LS.get('pickem', null);
+  const tiles = [
+    ['ffl', '🏈', 'Fantasy', ffl ? 'My league' : 'Connect league', 'hot'],
+    ['pickem', '🏆', "Pick'em", pk ? 'Make picks' : 'Join league', 'hot'],
+    ['rival', '⚔️', 'Office Rivalry', 'Board · trash talk', 'hot'],
+    cf ? ['pros', cf.logo, PRO_NICK[cf.loc] || 'Pros', cf.loc + ' in the pros', 'logo'] : null,
+    cfb ? ['recruit', cfb.logo, 'Recruiting', cfb.loc + ' commits', 'logo'] : null,
+    ['myteam', p.theme?.logo || '⭐', 'My Team', p.theme ? p.theme.ab || p.theme.dn : 'Pick a team', p.theme ? 'logo' : ''],
+    ['stand', '📊', 'Standings', 'SEC & every league'],
+    ['rank', '🔢', 'Polls', 'AP · Coaches · CFP'],
+    ['news', '📰', 'News', 'Your teams'],
+    ['brief', '📬', 'Morning Brief', LS.get('brief', {}).on ? 'You\'re signed up' : 'Daily email', LS.get('brief', {}).on ? '' : 'hot'],
+    ['trivia', '🧠', 'Trivia', 'Best: ' + LS.get('triviaBest', 0) + '/10'],
+    ['teams', '🎨', 'Teams & Colors', 'Follow · theme']
+  ].filter(Boolean);
+  return `<div class="tiles">${tiles.map(([k, ic, l, sub, kind]) => `<button class="tile ${kind || ''}" data-go="${k}">
+    <span class="tile-ico">${kind === 'logo' ? img(ic, 'tile-logo') : ic}</span><b>${esc(l)}</b><small>${esc(sub)}</small></button>`).join('')}</div>`;
+}
+function runTile(k, p) {
+  const cf = collegeFav(p), cfb = [p.theme, ...p.favs].find(f => f && f.lg === 'cfb');
+  const map = {
+    rival: () => openRivalry(), brief: openBrief, ffl: openFantasy, pickem: openPickem, stand: openStandings, rank: openRankings, news: openNews, trivia: openTrivia,
+    teams: () => openTeamPicker(), settings: openSettings,
+    scores: () => App.go('scores'), players: () => App.go('players'), myteam: () => App.go('team'),
+    pros: () => cf && openTeam(cf.lg, cf.id, 'pros'), recruit: () => cfb && openTeam('cfb', cfb.id, 'recruit')
+  };
+  (map[k] || (() => { }))();
+}
+
 /* ---------- boot ---------- */
 document.addEventListener('DOMContentLoaded', () => {
+  // mouse wheel scrolls any sideways row (chips, team strips) that still overflows
+  document.addEventListener('wheel', e => {
+    const row = e.target.closest('.chips,.my-teams,.seg,.rv-strip');
+    if (!row || row.scrollWidth <= row.clientWidth || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+    row.scrollLeft += e.deltaY; e.preventDefault();
+  }, { passive: false });
   Theme.apply(Prefs.get().theme);
   qs('#nav').onclick = e => { const b = e.target.closest('button[data-tab]'); if (b) App.go(b.dataset.tab); };
   qs('#hdrTheme').onclick = () => openTeamPicker();
   qs('#hdrSearch').onclick = () => App.go('players');
-  App.go(LS.get('tab', 'home'));
+  qs('#hdrGear').onclick = () => openSettings();
+  const t0 = LS.get('tab', 'home'); App.go(App.tabs[t0] && t0 !== 'more' ? t0 : 'home');
+  GameDay.check();
+  checkIn();
+  Ticker.init();
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { GameDay.check(); checkIn(); } });
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { });
 });

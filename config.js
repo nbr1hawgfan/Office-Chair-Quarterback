@@ -2,7 +2,7 @@
 const CONFIG = {
   APP_NAME: 'Office Chair QB',
   // Paste your Apps Script Web App URL here (ends in /exec). Can also be set in More → Settings.
-  GAS_URL: '',
+  GAS_URL: 'https://script.google.com/macros/s/AKfycbyaw3GXSu4SNCnylBPInicFRoRUdkuK32PLS_KQSStoLkjLz43plprZC2enWJDQHvld/exec',
   // Extra college teams always included in the office pick'em (by school name)
   PICKEM_EXTRA_SCHOOLS: ['Tulsa', 'Nebraska', 'Oklahoma State'],
   EBAY_CARD_CATEGORY: '212' // eBay "Sports Trading Cards"
@@ -20,6 +20,8 @@ const LEAGUES = {
   nhl:   { key: 'nhl',   name: 'NHL', short: 'NHL', path: 'hockey/nhl', mode: 'day', icon: '🏒', pro: true },
   wnba:  { key: 'wnba',  name: 'WNBA', short: 'WNBA', path: 'basketball/wnba', mode: 'day', icon: '🏀', pro: true }
 };
+const LEAGUE_LOGO = k => ({ nfl: 'nfl', nba: 'nba', mlb: 'mlb', nhl: 'nhl', wnba: 'wnba' }[k]
+  ? `https://a.espncdn.com/i/teamlogos/leagues/500/${k}.png` : 'https://a.espncdn.com/i/teamlogos/leagues/500/ncaa.png');
 const LEAGUE_ORDER = ['nfl', 'cfb', 'nba', 'mbb', 'wbb', 'mlb', 'cbase', 'soft', 'nhl', 'wnba'];
 const COLLEGE_SPORTS = ['cfb', 'mbb', 'wbb', 'cbase', 'soft'];
 

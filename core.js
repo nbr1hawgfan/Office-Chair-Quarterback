@@ -13,16 +13,46 @@ const LS = {
   del(k) { try { localStorage.removeItem('ocq_' + k); } catch (e) { } }
 };
 
-/* ---------- fetch with in-memory cache ---------- */
+/* ---------- fetch with in-memory cache + Apps Script fallback ----------
+   Some ESPN endpoints don't send CORS headers, so the browser blocks them.
+   When a direct call fails, we retry through the Apps Script proxy and remember
+   that endpoint pattern so later calls go straight to the proxy. */
 const _mem = new Map();
+const _route = LS.get('routes2', {}); // endpoint pattern → 'direct' | 'web' | 'proxy'
+const urlPattern = u => u.split('?')[0].replace(/\/\d+(?=\/|$)/g, '/#');
+async function directJSON(u) {
+  const r = await fetch(u);
+  if (!r.ok) throw new Error('Feed returned ' + r.status);
+  return r.json();
+}
 async function getJSON(url, ttlSec = 30) {
   const now = Date.now();
   const hit = _mem.get(url);
   if (hit && now - hit.t < ttlSec * 1000) return hit.d;
-  const r = await fetch(url);
-  if (!r.ok) throw new Error('Feed returned ' + r.status);
+  const isEspn = /^https:\/\/site(\.web)?\.api\.espn\.com\//.test(url);
+  if (!isEspn) { const d = await directJSON(url); _mem.set(url, { t: now, d }); return d; }
+  // Try the remembered route first, then: direct → ESPN web host → Apps Script proxy
+  const pat = urlPattern(url);
+  const webUrl = url.replace('https://site.api.espn.com/', 'https://site.web.api.espn.com/');
+  const routes = { direct: () => directJSON(url), web: () => directJSON(webUrl), proxy: () => viaProxy(url) };
+  const order = ['direct', 'web', 'proxy'].filter(k => k !== 'web' || webUrl !== url).filter(k => k !== 'proxy' || gasUrl());
+  if (_route[pat]) order.sort((a, b) => (b === _route[pat]) - (a === _route[pat]));
+  let lastErr;
+  for (const k of order) {
+    try {
+      const d = await routes[k]();
+      if (_route[pat] !== k) { _route[pat] = k; LS.set('routes2', _route); }
+      _mem.set(url, { t: now, d });
+      return d;
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr;
+}
+async function viaProxy(url) {
+  const trim = /\/teams\?/.test(url) || /\/teams$/.test(url.split('?')[0]) ? 'teams' : '';
+  const r = await fetch(gasUrl() + '?' + new URLSearchParams({ action: 'espn', u: url, trim }));
   const d = await r.json();
-  _mem.set(url, { t: now, d });
+  if (d && d.error) throw new Error(d.error);
   return d;
 }
 function clearMem() { _mem.clear(); }
@@ -64,12 +94,20 @@ function logoOf(t) {
 }
 const img = (src, cls = 'logo', alt = '') => src ? `<img class="${cls}" src="${esc(src)}" alt="${esc(alt)}" loading="lazy" onerror="this.style.visibility='hidden'">` : `<span class="${cls} ph"></span>`;
 
+/* League logo with emoji fallback if the image is missing */
+function lgIcon(k, cls = 'lg-ico') {
+  const L = LEAGUES[k];
+  return `<img class="${cls}" src="${LEAGUE_LOGO(k)}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;${cls} em&quot;>${L.icon}</span>'">`;
+}
+
 /* ---------- UI helpers ---------- */
 function toast(msg, ms = 2400) {
   const t = qs('#toast'); t.textContent = msg; t.classList.add('show');
   clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), ms);
 }
-const loadingHTML = (txt = 'Loading…') => `<div class="loading"><span class="spin"></span>${esc(txt)}</div>`;
+const loadingHTML = (txt = 'Loading…') => Theme.logo
+  ? `<div class="loading"><img class="spin-logo" src="${esc(Theme.logo)}" alt="">${esc(txt)}</div>`
+  : `<div class="loading"><span class="spin"></span>${esc(txt)}</div>`;
 const emptyHTML = txt => `<div class="empty">${esc(txt)}</div>`;
 function errHTML(e) {
   const msg = e && e.message === 'GAS_NOT_SET'
@@ -156,23 +194,44 @@ const Prefs = {
     if (i >= 0) p.favs.splice(i, 1); else p.favs.push(t);
     if (!p.theme && p.favs.length) p.theme = p.favs[0];
     if (p.theme && !p.favs.some(f => f.lg === p.theme.lg && f.id === p.theme.id)) p.theme = p.favs[0] || null;
-    this.save(p); Theme.apply(p.theme);
+    this.save(p); Theme.apply(p.theme); this.changed();
     return i < 0;
   },
-  setTheme(t) { const p = this.get(); p.theme = t; if (!this.isFav(t.lg, t.id)) p.favs.push(t); this.save(p); Theme.apply(t); }
+  setTheme(t) { const p = this.get(); p.theme = t; if (!this.isFav(t.lg, t.id)) p.favs.push(t); this.save(p); Theme.apply(t); this.changed(); },
+  changed() { if (typeof briefSync === 'function') briefSync(); if (typeof GameDay === 'object') GameDay.check(); }
 };
 
 /* Team list per league, trimmed + cached 7 days */
 async function teamsFor(lg) {
   const key = 'teams:' + lg, c = LS.get(key);
   if (c && Date.now() - c.t < 7 * 864e5 && c.d.length) return c.d;
-  const d = await getJSON(SITE + LEAGUES[lg].path + '/teams?limit=1000', 3600);
-  const arr = (d.sports?.[0]?.leagues?.[0]?.teams || []).map(x => x.team).map(t => ({
-    lg, id: t.id, loc: t.location, name: t.name, dn: t.displayName, ab: t.abbreviation,
-    c: t.color || '444444', a: t.alternateColor || 'ffffff', logo: logoOf(t)
-  })).sort((a, b) => a.dn.localeCompare(b.dn));
-  LS.set(key, { t: Date.now(), d: arr });
+  let raw = [], hasColors = true;
+  try {
+    const d = await getJSON(SITE + LEAGUES[lg].path + '/teams?limit=1000', 3600);
+    raw = (d.sports?.[0]?.leagues?.[0]?.teams || []).map(x => x.team);
+  } catch (e) {
+    // Fallback: pull teams out of the standings feed (no colors there; filled in when picked)
+    const s = await getJSON(STAND + LEAGUES[lg].path + '/standings', 3600);
+    const seen = new Set();
+    const walk = n => { (n.standings?.entries || []).forEach(en => { const t = en.team; if (t && !seen.has(t.id)) { seen.add(t.id); raw.push(t); } }); (n.children || []).forEach(walk); };
+    walk(s); hasColors = false;
+    if (!raw.length) throw e;
+  }
+  const arr = raw.map(t => ({
+    lg, id: String(t.id), loc: t.location, name: t.name, dn: t.displayName, ab: t.abbreviation,
+    c: t.color || '444444', a: t.alternateColor || 'ffffff', logo: logoOf(t), nc: !hasColors || !t.color
+  })).filter(t => t.dn).sort((a, b) => a.dn.localeCompare(b.dn));
+  if (arr.length) LS.set(key, { t: Date.now(), d: arr });
   return arr;
+}
+/* Fill in a team's real colors/logo when the list came without them */
+async function completeTeam(fav) {
+  if (!fav.nc) return fav;
+  try {
+    const d = await getJSON(`${SITE}${LEAGUES[fav.lg].path}/teams/${fav.id}`, 3600);
+    const t = d.team || {};
+    return { ...fav, c: t.color || fav.c, a: t.alternateColor || fav.a, logo: logoOf(t) || fav.logo, loc: t.location || fav.loc, nc: false };
+  } catch (e) { return fav; }
 }
 function favFromTeam(lg, t) {
   return { lg, id: String(t.id), loc: t.location || t.loc, name: t.name, dn: t.displayName || t.dn,
@@ -181,6 +240,7 @@ function favFromTeam(lg, t) {
 
 /* ---------- Team color theme ---------- */
 const Theme = {
+  logo: '',
   rgb(h) { h = String(h || '').replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join(''); const n = parseInt(h || '555555', 16) || 0; return [n >> 16 & 255, n >> 8 & 255, n & 255]; },
   lum([r, g, b]) { const f = v => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); }; return .2126 * f(r) + .7152 * f(g) + .0722 * f(b); },
   mix(a, b, t) { return a.map((v, i) => Math.round(v + (b[i] - v) * t)); },
@@ -203,7 +263,14 @@ const Theme = {
     const meta = qs('meta[name=theme-color]'); if (meta) meta.content = this.hex(this.mix(p, [8, 10, 14], .55));
     const lg = qs('#hdrLogo');
     if (lg) { lg.src = t && t.logo ? t.logo : 'icons/icon-192.png'; }
-    const tt = qs('#hdrTeam'); if (tt) tt.textContent = t ? t.dn : 'Pick your team';
+    const fan = this.fan || LS.get('prefs', {}).fan;
+    const tt = qs('#hdrTeam'); if (tt) tt.textContent = [fan, t ? t.dn : 'Pick your team'].filter(Boolean).join(' · ');
+    // team logo everywhere: header/sheet watermarks, loader, My Team tab icon, browser tab icon
+    this.logo = t && t.logo ? t.logo : '';
+    root.setProperty('--logo', this.logo ? `url("${this.logo}")` : 'none');
+    const navIco = qs('#nav [data-tab="team"] span');
+    if (navIco) navIco.innerHTML = this.logo ? `<img src="${esc(this.logo)}" alt="" class="nav-logo">` : '⭐';
+    const fav = qs('link[rel=icon]'); if (fav) fav.href = this.logo || 'icons/icon-192.png';
   }
 };
 

@@ -28,7 +28,8 @@ function gameCardHTML(ev, lg) {
   const { away, home } = sides(ev), st = statusOf(ev);
   const live = st.state === 'in', done = st.state === 'post';
   const favIds = new Set(Prefs.favs().filter(f => f.lg === lg).map(f => String(f.id)));
-  const isFavGame = favIds.has(String(away.team?.id)) || favIds.has(String(home.team?.id));
+  const favSide = favIds.has(String(home.team?.id)) ? home : favIds.has(String(away.team?.id)) ? away : null;
+  const isFavGame = !!favSide;
   const row = c => {
     const t = c.team || {}, r = rankOf(c), rec = (c.records || [])[0]?.summary || '';
     const win = done && c.winner;
@@ -41,7 +42,8 @@ function gameCardHTML(ev, lg) {
   const odds = (compOf(ev).odds || [])[0]?.details;
   const sit = compOf(ev).situation;
   const extra = live && sit ? (sit.downDistanceText || sit.shortDownDistanceText || (sit.balls != null ? `${sit.balls}-${sit.strikes}, ${sit.outs} out` : '')) : '';
-  return `<button class="game ${live ? 'live' : ''} ${isFavGame ? 'fav' : ''}" data-ev="${ev.id}" data-lg="${lg}">
+  const wm = favSide ? ` style="--fl:url('${esc(logoOf(favSide.team))}')"` : '';
+  return `<button class="game ${live ? 'live' : ''} ${isFavGame ? 'fav' : ''}" data-ev="${ev.id}" data-lg="${lg}"${wm}>
     ${row(away)}${row(home)}
     <div class="g-meta"><span class="g-status">${live ? '<i class="dot"></i>' : ''}${esc(st.state === 'pre' ? fmtDay(ev.date) + ' · ' + fmtTime(ev.date) : st.shortDetail || st.detail || '')}</span>
       <span>${esc(extra || (st.state === 'pre' ? [tv, odds].filter(Boolean).join(' · ') : tv))}</span></div>
@@ -58,7 +60,7 @@ function bindGameClicks(root) {
 async function renderScores(view) {
   const s = ScoreState, L = () => LEAGUES[s.lg];
   view.innerHTML = `
-    <div class="chips" id="lgChips">${LEAGUE_ORDER.map(k => `<button data-k="${k}" class="${k === s.lg ? 'on' : ''}">${LEAGUES[k].icon} ${LEAGUES[k].short}</button>`).join('')}</div>
+    <div class="chips" id="lgChips">${LEAGUE_ORDER.map(k => `<button data-k="${k}" class="${k === s.lg ? 'on' : ''}">${lgIcon(k)}${LEAGUES[k].short}</button>`).join('')}</div>
     <div id="sFilter"></div>
     <div class="nav-row"><button class="icon-btn" id="sPrev">‹</button><span id="sLabel"></span><button class="icon-btn" id="sNext">›</button></div>
     <div id="sList">${loadingHTML()}</div>`;
@@ -179,9 +181,12 @@ function openGame(lg, eventId) {
           ${(cat.athletes || []).map(a => `<tr><td><button class="lnk" data-ath="${a.athlete?.id}">${esc(a.athlete?.shortName || a.athlete?.displayName || '')}</button></td>${(a.stats || []).map(v => `<td>${esc(v)}</td>`).join('')}</tr>`).join('')}</table></div>`).join('')}
           </details>`).join('')}</div>`;
       }
+      if (lg === 'nfl' && bp.length) html += fantasyBoxHTML(bp);
       if (!leaders.length && !bt.length && st.state === 'pre') html += emptyHTML('Box score shows up once the game starts.');
       ctx.body.innerHTML = html;
       ctx.body.onclick = e => {
+        const fs = e.target.closest('[data-fs]');
+        if (fs) { LS.set('fflScoring', fs.dataset.fs); const box = qs('#fbox', ctx.body); if (box) box.outerHTML = fantasyBoxHTML(bp); return; }
         const a = e.target.closest('[data-ath]'); if (a && a.dataset.ath && a.dataset.ath !== 'undefined') return openPlayer(lg, a.dataset.ath);
         const t = e.target.closest('[data-team]'); if (t) return openTeam(lg, t.dataset.team);
       };
@@ -189,4 +194,29 @@ function openGame(lg, eventId) {
     };
     await draw();
   });
+}
+
+/* Fantasy points from an NFL box score (PPR / Half / Standard) */
+function fantasyBoxHTML(bp) {
+  const mode = LS.get('fflScoring', 'ppr'), recPts = { ppr: 1, half: 0.5, std: 0 }[mode];
+  const players = {};
+  bp.forEach(tp => (tp.statistics || []).forEach(cat => {
+    const L = (cat.labels || []).map(x => x.toUpperCase());
+    const col = (a, n) => { const i = L.indexOf(n); return i < 0 ? 0 : parseFloat(String(a.stats[i]).split('/')[0]) || 0; };
+    (cat.athletes || []).forEach(a => {
+      const id = a.athlete?.id; if (!id) return;
+      const p = players[id] || (players[id] = { id, name: a.athlete.shortName || a.athlete.displayName, team: tp.team?.abbreviation, logo: logoOf(tp.team), pts: 0, line: [] });
+      if (cat.name === 'passing') { const y = col(a, 'YDS'), td = col(a, 'TD'), int = col(a, 'INT'); p.pts += y * 0.04 + td * 4 - int * 2; p.line.push(`${y} pass yds${td ? `, ${td} TD` : ''}${int ? `, ${int} INT` : ''}`); }
+      if (cat.name === 'rushing') { const y = col(a, 'YDS'), td = col(a, 'TD'); p.pts += y * 0.1 + td * 6; if (y || td) p.line.push(`${y} rush${td ? `, ${td} TD` : ''}`); }
+      if (cat.name === 'receiving') { const r = col(a, 'REC'), y = col(a, 'YDS'), td = col(a, 'TD'); p.pts += r * recPts + y * 0.1 + td * 6; p.line.push(`${r}-${y} rec${td ? `, ${td} TD` : ''}`); }
+      if (cat.name === 'fumbles') { const l = col(a, 'LOST'); p.pts -= l * 2; if (l) p.line.push(`${l} fum lost`); }
+      if (cat.name === 'kicking') { const k = col(a, 'PTS'); p.pts += k; p.line.push(`${a.stats[L.indexOf('FG')] || ''} FG`); }
+    });
+  }));
+  const top = Object.values(players).filter(p => p.pts).sort((a, b) => b.pts - a.pts).slice(0, 15);
+  if (!top.length) return '';
+  return `<div class="card" id="fbox"><h4>Fantasy Points</h4>
+    <div class="seg small">${[['ppr', 'PPR'], ['half', 'Half PPR'], ['std', 'Standard']].map(([k, l]) => `<button data-fs="${k}" class="${k === mode ? 'on' : ''}">${l}</button>`).join('')}</div>
+    ${top.map((p, i) => `<button class="fp-row" data-ath="${p.id}"><b class="fp-rk">${i + 1}</b>${img(p.logo, 'logo xs')}<span><b>${esc(p.name)}</b><small>${esc(p.line.join(' · '))}</small></span><b class="fp-pts">${p.pts.toFixed(1)}</b></button>`).join('')}
+    <p class="src">Calculated from the box score; your league's scoring may differ slightly.</p></div>`;
 }
