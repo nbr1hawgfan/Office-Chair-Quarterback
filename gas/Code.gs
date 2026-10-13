@@ -25,7 +25,9 @@ const SHEETS = {
   Picks: ['Week', 'League', 'Name', 'EventId', 'TeamId', 'Team', 'Updated'],
   Results: ['EventId', 'League', 'WinnerId', 'Updated'],
   ProAlumni: ['League', 'AthleteId', 'Name', 'Position', 'TeamName', 'TeamAbbr', 'CollegeId', 'CollegeName', 'CollegeShort', 'Headshot', 'Injury'],
-  Meta: ['Key', 'Value']
+  Meta: ['Key', 'Value'],
+  Rivals: ['Name', 'League', 'TeamId', 'TeamName', 'TeamLoc', 'Abbr', 'Logo', 'Color', 'AltColor', 'Updated'],
+  Wall: ['Id', 'Time', 'Name', 'Text', 'Ref', 'Reacts']
 };
 
 /* ---------------- entry points ---------------- */
@@ -42,6 +44,8 @@ function doGet(e) {
       case 'mypicks': checkUser(p.code, p.name, p.pin); return out({ picks: myPicks(p.name, p.week) });
       case 'weekpicks': checkCode(p.code); return out({ picks: weekPicks(p.week) });
       case 'leaderboard': checkCode(p.code); return out(leaderboard());
+      case 'rivals': checkCode(p.code); return out({ rivals: getRivals() });
+      case 'wall': checkCode(p.code); return out({ posts: getWall(Number(p.since) || 0) });
       default: return out({ error: 'Unknown action' });
     }
   } catch (err) { return out({ error: String(err.message || err) }); }
@@ -52,6 +56,9 @@ function doPost(e) {
     const b = JSON.parse(e.postData.contents || '{}');
     if (b.action === 'join') return out(join(b.code, b.name, b.pin));
     if (b.action === 'submitPicks') return out(submitPicks(b));
+    if (b.action === 'setRival') return out(setRival(b));
+    if (b.action === 'post') return out(addPost(b));
+    if (b.action === 'react') return out(react(b));
     return out({ error: 'Unknown action' });
   } catch (err) { return out({ error: String(err.message || err) }); }
 }
@@ -381,4 +388,52 @@ function testESPN() {
     const a = UrlFetchApp.fetch(u, ESPN_OPTS).getResponseCode(), b = UrlFetchApp.fetch(webHost(u), ESPN_OPTS).getResponseCode();
     Logger.log(p + '  site.api=' + a + '  site.web.api=' + b);
   });
+}
+
+/* ---------------- Office Rivalry Board ---------------- */
+function getRivals() {
+  return rows('Rivals').filter(r => r[0]).map(r => ({ name: r[0], lg: r[1], id: String(r[2]), dn: r[3], loc: r[4], ab: r[5], logo: r[6], c: r[7], a: r[8] }));
+}
+function setRival(b) {
+  const name = checkUser(b.code, b.name, b.pin), t = b.team || {};
+  if (!t.lg || !t.id) throw new Error('Pick a team');
+  const clean = v => String(v == null ? '' : v).slice(0, 120);
+  const row = [name, clean(t.lg), clean(t.id), clean(t.dn), clean(t.loc), clean(t.ab), clean(t.logo), clean(t.c), clean(t.a), new Date()];
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    const s = sh('Rivals'), v = s.getDataRange().getValues();
+    for (let i = 1; i < v.length; i++) if (norm(v[i][0]) === norm(name)) { s.getRange(i + 1, 1, 1, row.length).setValues([row]); return { ok: true }; }
+    s.appendRow(row); return { ok: true };
+  } finally { lock.releaseLock(); }
+}
+function getWall(since) {
+  const v = rows('Wall').filter(r => r[0]);
+  return v.slice(-60).map(r => ({ id: String(r[0]), t: new Date(r[1]).toISOString(), name: r[2], text: r[3], ref: r[4] || '', reacts: safeJSON(r[5]) }))
+    .filter(p => !since || new Date(p.t).getTime() > since).reverse();
+}
+function safeJSON(s) { try { return s ? JSON.parse(s) : {}; } catch (e) { return {}; } }
+function addPost(b) {
+  const name = checkUser(b.code, b.name, b.pin);
+  const text = String(b.text || '').replace(/\s+/g, ' ').trim().slice(0, 240);
+  if (!text) throw new Error('Say something!');
+  const cache = CacheService.getScriptCache(), k = 'rate:' + norm(name);
+  if (cache.get(k)) throw new Error('Easy there — one post every 10 seconds');
+  cache.put(k, '1', 10);
+  const id = Utilities.getUuid().slice(0, 8);
+  sh('Wall').appendRow([id, new Date(), name, text, String(b.ref || '').slice(0, 40), '{}']);
+  return { ok: true, id: id };
+}
+function react(b) {
+  const name = checkUser(b.code, b.name, b.pin), emoji = String(b.emoji || '');
+  if (['🔥', '😂', '🗑️', '👏'].indexOf(emoji) < 0) throw new Error('Bad reaction');
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    const s = sh('Wall'), v = s.getDataRange().getValues();
+    for (let i = v.length - 1; i >= 1; i--) if (String(v[i][0]) === String(b.id)) {
+      const r = safeJSON(v[i][5]); const list = r[emoji] || [];
+      const at = list.indexOf(name); if (at >= 0) list.splice(at, 1); else list.push(name);
+      r[emoji] = list; s.getRange(i + 1, 6).setValue(JSON.stringify(r)); return { ok: true, reacts: r };
+    }
+    throw new Error('Post not found');
+  } finally { lock.releaseLock(); }
 }

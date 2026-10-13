@@ -28,11 +28,13 @@ async function renderHome(view) {
   view.innerHTML = `<div class="home-hero" ${th ? `style="--tc:#${th.c};--ta:#${th.a};--tl:url('${esc(th.logo)}')"` : ''}>
       ${th ? img(th.logo, 'logo hero-logo') : ''}<div><h2 class="hello">${esc(hello)} 👋</h2>${th ? `<small>${esc(th.dn)} · ${LEAGUES[th.lg].short}</small>` : ''}</div></div>
     <div id="gameDay"></div>
+    <div id="rivalCard"></div>
     <h3 class="sec-h">My Teams</h3><div class="my-teams" id="myTeams">${favs.map(f => `<button class="mt-card" data-k="${f.lg}:${f.id}" style="--tc:#${f.c};--ta:#${f.a}">${img(f.logo, 'logo lg')}<b>${esc(f.ab || f.dn)}</b><small>${LEAGUES[f.lg].short}</small><span class="mt-next">…</span></button>`).join('')}</div>
     <h3 class="sec-h">Live & Today</h3><div id="liveNow">${loadingHTML()}</div>
     <h3 class="sec-h">The Clubhouse</h3>${homeTilesHTML(p)}
     <h3 class="sec-h">Jump to a league</h3><div class="lg-grid">${LEAGUE_ORDER.map(k => `<button class="lg-tile" data-lgo="${k}">${lgIcon(k, 'lg-big')}<b>${LEAGUES[k].short}</b><small>${LEAGUES[k].college ? LEAGUES[k].icon + ' NCAA' : 'Pro'}</small></button>`).join('')}</div>`;
   bindGameClicks(qs('#liveNow', view));
+  homeRivalryCard(qs('#rivalCard', view));
   view.onclick = e => {
     const c = e.target.closest('.mt-card');
     if (c) { const [lg, id] = c.dataset.k.split(':'); LS.set('myTeamCur', { lg, id }); return App.go('team'); }
@@ -98,7 +100,7 @@ function homeTilesHTML(p) {
   const tiles = [
     ['ffl', '🏈', 'Fantasy', ffl ? 'My league' : 'Connect league', 'hot'],
     ['pickem', '🏆', "Pick'em", pk ? 'Make picks' : 'Join league', 'hot'],
-    ['scores', '📺', 'Scores', 'All leagues'],
+    ['rival', '⚔️', 'Office Rivalry', 'Board · trash talk', 'hot'],
     cf ? ['pros', cf.logo, PRO_NICK[cf.loc] || 'Pros', cf.loc + ' in the pros', 'logo'] : null,
     cfb ? ['recruit', cfb.logo, 'Recruiting', cfb.loc + ' commits', 'logo'] : null,
     ['myteam', p.theme?.logo || '⭐', 'My Team', p.theme ? p.theme.ab || p.theme.dn : 'Pick a team', p.theme ? 'logo' : ''],
@@ -115,7 +117,7 @@ function homeTilesHTML(p) {
 function runTile(k, p) {
   const cf = collegeFav(p), cfb = [p.theme, ...p.favs].find(f => f && f.lg === 'cfb');
   const map = {
-    ffl: openFantasy, pickem: openPickem, stand: openStandings, rank: openRankings, news: openNews, trivia: openTrivia,
+    rival: () => openRivalry(), ffl: openFantasy, pickem: openPickem, stand: openStandings, rank: openRankings, news: openNews, trivia: openTrivia,
     teams: () => openTeamPicker(), settings: openSettings,
     scores: () => App.go('scores'), players: () => App.go('players'), myteam: () => App.go('team'),
     pros: () => cf && openTeam(cf.lg, cf.id, 'pros'), recruit: () => cfb && openTeam('cfb', cfb.id, 'recruit')
@@ -125,6 +127,12 @@ function runTile(k, p) {
 
 /* ---------- boot ---------- */
 document.addEventListener('DOMContentLoaded', () => {
+  // mouse wheel scrolls any sideways row (chips, team strips) that still overflows
+  document.addEventListener('wheel', e => {
+    const row = e.target.closest('.chips,.my-teams,.seg,.rv-strip');
+    if (!row || row.scrollWidth <= row.clientWidth || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+    row.scrollLeft += e.deltaY; e.preventDefault();
+  }, { passive: false });
   Theme.apply(Prefs.get().theme);
   qs('#nav').onclick = e => { const b = e.target.closest('button[data-tab]'); if (b) App.go(b.dataset.tab); };
   qs('#hdrTheme').onclick = () => openTeamPicker();

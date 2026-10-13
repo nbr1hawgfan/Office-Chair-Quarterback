@@ -352,3 +352,54 @@ img.hs.sm,.hs.sm.ph{width:28px;height:28px}
 .lg-tile b{font-size:11px}.lg-tile small{font-size:9.5px}
 .lg-big{width:34px;height:34px;object-fit:contain}
 .lg-big.em{width:auto;font-size:26px}
+
+/* ---------- desktop: wrap chip rows instead of hidden sideways scrolling ---------- */
+@media (hover:hover) and (pointer:fine){
+  .chips{flex-wrap:wrap;overflow:visible}
+  .my-teams{flex-wrap:wrap;overflow:visible}
+  .seg{flex-wrap:wrap}
+  .chips::-webkit-scrollbar,.my-teams::-webkit-scrollbar{display:block;height:6px}
+}
+
+/* ---------- Office Rivalry ---------- */
+.rv-strip{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin}
+.rv-mini{flex:none;width:122px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:12px 6px;border-radius:var(--r);text-align:center;
+  background:linear-gradient(160deg,var(--tc),#0b0d11 150%);border-bottom:3px solid var(--ta);color:#fff}
+.rv-mini b{font-size:13px}.rv-mini small{font-size:11px;color:rgba(255,255,255,.85);min-height:15px}
+.rv-mini i{font-style:normal;font-size:11px;font-weight:700;opacity:.9}
+.rv-mini .w,.rv-st .w{color:#7dffb3}.rv-mini .l,.rv-st .l{color:#ff9a9a}
+.rv-empty{display:block;width:100%;padding:14px;border-radius:var(--r);background:var(--card);border:1px dashed rgba(var(--p-rgb),.8);margin:6px 0 4px;text-align:center}
+.rv-empty small{display:block}
+.rv-banner{display:block;width:100%;margin:6px 0 10px;padding:12px;border-radius:var(--r);color:#fff;position:relative;
+  background:linear-gradient(100deg,var(--tc) 0%,#11141a 48%,#11141a 52%,var(--tc2) 100%);border:2px solid var(--a);animation:pulseb 2.6s ease-in-out infinite}
+@keyframes pulseb{50%{box-shadow:0 0 18px rgba(var(--p-rgb),.6)}}
+.rv-tag{display:block;text-align:center;font-size:11px;font-weight:800;letter-spacing:1.5px;margin-bottom:6px}
+.rv-vs{display:flex;align-items:center;gap:8px}
+.rv-vs>div{flex:1;min-width:0}.rv-vs .r{text-align:right}
+.rv-vs b{display:block;font-size:14px}.rv-vs small{display:block;color:rgba(255,255,255,.8);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rv-mid{font-family:Oswald;font-size:22px;padding:0 6px}
+.rv-when{display:block;text-align:center;margin-top:6px;color:rgba(255,255,255,.8)}
+.rep{padding:12px}.rep>b{display:block;margin-bottom:6px}
+.rv-list{display:flex;flex-direction:column;gap:8px}
+.rv-row{display:flex;align-items:center;gap:10px;padding:10px;border-radius:var(--r);background:linear-gradient(110deg,rgba(0,0,0,0),var(--card) 30%);
+  background-color:var(--card);border-left:5px solid var(--tc);position:relative;overflow:hidden}
+.rv-row.mine{box-shadow:0 0 0 2px var(--a)}
+.rv-info{flex:1;min-width:0}.rv-info b{display:block}.rv-info small{display:block;font-size:12px}
+.rv-st{display:block;font-size:13px;margin-top:2px}
+.form{display:flex;gap:3px;margin-top:4px}
+.form i{font-style:normal;font-size:9px;font-weight:800;width:16px;height:16px;border-radius:4px;display:grid;place-items:center}
+.form .fw{background:rgba(61,220,132,.25);color:var(--win)}.form .fl{background:rgba(255,93,93,.22);color:var(--loss)}
+.trash-btn{font-size:22px;padding:4px;animation:wig 1.8s ease-in-out infinite}
+@keyframes wig{0%,100%{transform:rotate(0)}10%{transform:rotate(-14deg)}20%{transform:rotate(12deg)}30%{transform:rotate(0)}}
+.icon-btn.sm{width:32px;height:32px;font-size:15px}
+.composer{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:10px;margin-bottom:12px}
+.composer textarea{width:100%;background:var(--bg2);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit;resize:vertical}
+.comp-row{display:flex;align-items:center;gap:8px;margin-top:8px}
+.quick-trash{flex:1;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+.quick-trash button{flex:none;font-size:12px;padding:5px 9px;border-radius:14px;background:var(--card2)}
+.btn.post{width:auto;margin:0;padding:9px 18px}
+.post{display:flex;gap:10px;padding:10px;background:var(--card);border-radius:12px;margin-bottom:8px;border-left:4px solid var(--tc)}
+.post-bd{flex:1;min-width:0}.post-bd p{margin:4px 0 6px;word-wrap:break-word}.post-bd em{color:var(--accent);font-style:normal;font-weight:700}
+.reacts{display:flex;gap:6px}
+.reacts button{font-size:13px;padding:3px 8px;border-radius:12px;background:var(--bg2);border:1px solid var(--line)}
+.reacts button.on{border-color:var(--a);background:rgba(var(--p-rgb),.3)}

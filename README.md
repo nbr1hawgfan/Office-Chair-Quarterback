@@ -37,7 +37,7 @@ After code changes in GAS: Deploy → Manage deployments → edit → **New vers
 - Change the extra pick'em schools in `js/config.js` → `PICKEM_EXTRA_SCHOOLS`.
 
 ## Fantasy Football (ESPN)
-More → **Fantasy Football** (or the 🏈 button on Home). Each person enters their own league ID (the number after `leagueId=` on fantasy.espn.com). Shows matchups with live points and projections (tap for both lineups), standings, and every roster. Tap "This is my team" on Rosters to highlight yours. NFL game centers also have a **Fantasy Points** card (PPR / Half / Standard).
+Home → **Fantasy** tile. Each person enters their own league ID (the number after `leagueId=` on fantasy.espn.com). Shows matchups with live points and projections (tap for both lineups), standings, and every roster. Tap "This is my team" on Rosters to highlight yours. NFL game centers also have a **Fantasy Points** card (PPR / Half / Standard).
 
 **Public leagues** load directly. **Private leagues** go through the backend:
 1. Log into fantasy.espn.com on a computer → developer tools → Application → Cookies → `espn.com`. Copy `espn_s2` and `SWID`.
@@ -46,3 +46,10 @@ More → **Fantasy Football** (or the 🏈 button on Home). Each person enters t
 4. Deploy a New version.
 
 Your cookies only unlock leagues **you're in**. A co-worker's private league in a league you're not part of won't load unless it's public (League → Settings → "Make league viewable to public").
+
+## Office Rivalry ⚔️
+Home screen card + **Office Rivalry** tile. Uses the same name/PIN as Pick'em.
+- **Board** — everyone picks one team to "rep" (from their followed teams). Shows each person's team live score, today's result or next game, last-5 form, and 🔥/🥶 streaks. When two co-workers' teams play each other, a **Rivalry Game** banner appears with both names.
+- **Bragging Rights** — co-workers ranked by their team's win % this season. Last place buys lunch.
+- **Trash Talk** — short posts (240 chars, one every 10 seconds) with 🔥 😂 🗑️ 👏 reactions. A wiggling 🗑️ appears next to anyone whose team just lost — tap it to start a post at them.
+- Sheet tabs added automatically: `Rivals`, `Wall`. Delete a row in `Wall` to remove a post.

@@ -60,7 +60,7 @@ function bindGameClicks(root) {
 async function renderScores(view) {
   const s = ScoreState, L = () => LEAGUES[s.lg];
   view.innerHTML = `
-    <div class="chips" id="lgChips">${LEAGUE_ORDER.map(k => `<button data-k="${k}" class="${k === s.lg ? 'on' : ''}">${lgIcon(k)}${LEAGUES[k].short}${LEAGUES[k].college ? ` <small>${LEAGUES[k].icon}</small>` : ''}</button>`).join('')}</div>
+    <div class="chips" id="lgChips">${LEAGUE_ORDER.map(k => `<button data-k="${k}" class="${k === s.lg ? 'on' : ''}">${lgIcon(k)}${LEAGUES[k].short}</button>`).join('')}</div>
     <div id="sFilter"></div>
     <div class="nav-row"><button class="icon-btn" id="sPrev">‹</button><span id="sLabel"></span><button class="icon-btn" id="sNext">›</button></div>
     <div id="sList">${loadingHTML()}</div>`;
