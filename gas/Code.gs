@@ -28,6 +28,9 @@ const SHEETS = {
   Meta: ['Key', 'Value'],
   Rivals: ['Name', 'League', 'TeamId', 'TeamName', 'TeamLoc', 'Abbr', 'Logo', 'Color', 'AltColor', 'Updated'],
   Wall: ['Id', 'Time', 'Name', 'Text', 'Ref', 'Reacts'],
+  Users: ['Fan Name', 'Real Name', 'Team', 'Device', 'First Seen', 'Last Seen', 'Opens'],
+  Activity: ['Time', 'Fan Name', 'Real Name', 'Team', 'Device'],
+  HistoryCache: ['Key', 'Fetched', 'Json1', 'Json2', 'Json3', 'Json4', 'Json5', 'Json6'],
   Brief: ['Email', 'Name', 'Teams', 'Theme', 'Hour', 'Days', 'Fantasy', 'Token', 'Active', 'LastSent', 'Created']
 };
 
@@ -48,6 +51,10 @@ function doGet(e) {
       case 'rivals': checkCode(p.code); return out({ rivals: getRivals() });
       case 'wall': checkCode(p.code); return out({ posts: getWall(Number(p.since) || 0) });
       case 'briefUnsub': return briefUnsub(p.token);
+      case 'history': return out(historyTeam(p.team));
+      case 'thisday': return out(thisDay(p.team, p.md));
+      case 'h2h': return out(headToHead(p.team1, p.team2));
+      case 'draft': return out(draftHistory(p.team));
       default: return out({ error: 'Unknown action' });
     }
   } catch (err) { return out({ error: String(err.message || err) }); }
@@ -61,6 +68,7 @@ function doPost(e) {
     if (b.action === 'setRival') return out(setRival(b));
     if (b.action === 'post') return out(addPost(b));
     if (b.action === 'react') return out(react(b));
+    if (b.action === 'hello') return out(hello(b));
     if (b.action === 'briefSave') return out(briefSave(b));
     if (b.action === 'briefTest') return out(briefTest(b));
     if (b.action === 'briefStop') return out(briefStop(b));
@@ -216,12 +224,28 @@ function getPros(college, collegeId) {
 }
 
 /* ---------------- recruiting (CollegeFootballData) ---------------- */
-function cfbd(path) {
+function cfbdKey() {
   const key = PropertiesService.getScriptProperties().getProperty('CFBD_KEY');
-  if (!key) throw new Error('Recruiting needs a free CFBD_KEY in Script Properties (collegefootballdata.com/key)');
+  if (!key) throw new Error('Needs a free CFBD_KEY in Script Properties (collegefootballdata.com/key)');
+  return key;
+}
+/* Monthly call budget so the free CFBD tier never runs dry (Script Property CFBD_MONTHLY, default 900) */
+function cfbdSpend(n) {
+  const k = 'cfbd:' + Utilities.formatDate(new Date(), 'UTC', 'yyyy-MM');
+  const used = Number(meta(k)) || 0, cap = Number(PropertiesService.getScriptProperties().getProperty('CFBD_MONTHLY')) || 900;
+  if (used + n > cap) throw new Error('History data is resting until next month (free data limit reached).');
+  meta(k, used + n);
+}
+function cfbd(path) {
+  const key = cfbdKey(); cfbdSpend(1);
   const r = UrlFetchApp.fetch('https://api.collegefootballdata.com' + path, { headers: { Authorization: 'Bearer ' + key }, muteHttpExceptions: true });
   if (r.getResponseCode() !== 200) throw new Error('CFBD returned ' + r.getResponseCode());
   return JSON.parse(r.getContentText());
+}
+function cfbdMany(paths) {
+  const key = cfbdKey(); cfbdSpend(paths.length);
+  return UrlFetchApp.fetchAll(paths.map(p => ({ url: 'https://api.collegefootballdata.com' + p, headers: { Authorization: 'Bearer ' + key }, muteHttpExceptions: true })))
+    .map(r => { try { return r.getResponseCode() === 200 ? JSON.parse(r.getContentText()) : null; } catch (e) { return null; } });
 }
 
 function getRecruits(team, year) {
@@ -617,4 +641,139 @@ function sendBriefTo(r, shared) {
     '<div style="text-align:center;margin:18px 0 8px"><a href="' + h(APP_URL()) + '" style="display:inline-block;background:' + c + ';color:#fff;font:700 15px Arial;padding:12px 24px;border-radius:12px;text-decoration:none;border:2px solid ' + a + '">Open Office Chair QB</a></div>' +
     '<p style="text-align:center;font:11px Arial;color:#8b93a3;margin:16px 0">Scores &amp; news from ESPN. <a href="' + unsub + '" style="color:#8b93a3">Unsubscribe</a></p></div></div></div>';
   MailApp.sendEmail({ to: email, subject: subject, htmlBody: html, name: 'Office Chair QB' });
+}
+
+/* ---------------- Who's using the app ----------------
+   Users tab: one row per person (first/last seen, open count). Activity tab: one row per app open (max every 20 min per device). */
+function hello(b) {
+  checkCode(b.code);
+  const fan = String(b.fan || '').slice(0, 30).trim(); if (!fan) return { ok: false };
+  const real = String(b.real || '').slice(0, 40), team = String(b.team || '').slice(0, 50), device = String(b.device || '').slice(0, 30), now = new Date();
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    const s = sh('Users'), v = s.getDataRange().getValues();
+    let found = false;
+    for (let i = 1; i < v.length; i++) if (norm(v[i][0]) === norm(fan)) {
+      s.getRange(i + 1, 1, 1, 7).setValues([[v[i][0], real || v[i][1], team || v[i][2], device || v[i][3], v[i][4], now, (Number(v[i][6]) || 0) + 1]]);
+      found = true; break;
+    }
+    if (!found) s.appendRow([fan, real, team, device, now, now, 1]);
+    sh('Activity').appendRow([now, fan, real, team, device]);
+  } finally { lock.releaseLock(); }
+  return { ok: true };
+}
+
+/* ---------------- Program history (CollegeFootballData, cached in the HistoryCache tab) ---------------- */
+const CFBD_NAME = { 'UConn': 'Connecticut', 'UMass': 'Massachusetts', 'Southern Miss': 'Southern Mississippi', 'Sam Houston': 'Sam Houston State', 'App State': 'Appalachian State' };
+const cfbName = t => CFBD_NAME[String(t || '').trim()] || String(t || '').trim();
+
+function histGet(key, ttlDays) {
+  const c = CacheService.getScriptCache().get('h:' + key); if (c) return JSON.parse(c);
+  const v = sh('HistoryCache').getDataRange().getValues();
+  for (let i = 1; i < v.length; i++) if (v[i][0] === key) {
+    if (ttlDays && Date.now() - new Date(v[i][1]).getTime() > ttlDays * 864e5) return null;
+    const json = v[i].slice(2).join('');
+    try { const d = JSON.parse(json); try { if (json.length < 95000) CacheService.getScriptCache().put('h:' + key, json, 21600); } catch (e) { } return d; } catch (e) { return null; }
+  }
+  return null;
+}
+function histPut(key, data) {
+  const json = JSON.stringify(data), parts = [];
+  for (let i = 0; i < 6; i++) parts.push(json.slice(i * 45000, (i + 1) * 45000));
+  if (json.length > 270000) throw new Error('History too large to cache');
+  const s = sh('HistoryCache'), v = s.getDataRange().getValues(), row = [key, new Date()].concat(parts);
+  for (let i = 1; i < v.length; i++) if (v[i][0] === key) { s.getRange(i + 1, 1, 1, row.length).setValues([row]); return data; }
+  s.appendRow(row);
+  try { if (json.length < 95000) CacheService.getScriptCache().put('h:' + key, json, 21600); } catch (e) { }
+  return data;
+}
+function cachedCfbd(key, ttlDays, build) {
+  const hit = histGet(key, ttlDays); if (hit) return hit;
+  const lock = LockService.getScriptLock(); lock.waitLock(30000);
+  try { const again = histGet(key, ttlDays); if (again) return again; return histPut(key, build()); }
+  finally { lock.releaseLock(); }
+}
+
+/* Every game for a team from HISTORY_FROM (default 1980) on. Past seasons are stored for good; the current season refreshes daily. */
+function trimGame(g, team) {
+  const home = g.homeTeam === team, us = home ? g.homePoints : g.awayPoints, them = home ? g.awayPoints : g.homePoints;
+  return { y: g.season, d: g.startDate, o: home ? g.awayTeam : g.homeTeam, h: home ? 1 : g.neutralSite ? 0 : -1, us: us, them: them, post: g.seasonType === 'postseason' ? 1 : 0, n: g.notes || '' };
+}
+function gameIndex(team) {
+  const from = Number(PropertiesService.getScriptProperties().getProperty('HISTORY_FROM')) || 1980;
+  const cur = new Date().getFullYear(), enc = encodeURIComponent(team);
+  const past = cachedCfbd('games:' + team + ':' + from, 3650, () => {
+    const years = []; for (let y = from; y < cur; y++) years.push(y);
+    const out = [];
+    for (let i = 0; i < years.length; i += 12) {
+      cfbdMany(years.slice(i, i + 12).map(y => '/games?year=' + y + '&team=' + enc + '&seasonType=both')).forEach(arr => (arr || []).forEach(g => {
+        if (g.homePoints != null && g.awayPoints != null) out.push(trimGame(g, team));
+      }));
+      Utilities.sleep(400);
+    }
+    return out;
+  });
+  const now = cachedCfbd('games:' + team + ':' + cur, 1, () => (cfbd('/games?year=' + cur + '&team=' + enc + '&seasonType=both') || [])
+    .filter(g => g.homePoints != null && g.awayPoints != null).map(g => trimGame(g, team)));
+  return past.concat(now);
+}
+
+function historyTeam(t) {
+  const team = cfbName(t); if (!team) throw new Error('Missing team');
+  return cachedCfbd('hist:' + team, 7, () => {
+    const enc = encodeURIComponent(team);
+    const [records, coaches] = cfbdMany(['/records?team=' + enc, '/coaches?team=' + enc]);
+    const coachBy = {}, rankBy = {};
+    (coaches || []).forEach(c => (c.seasons || []).forEach(s => {
+      if (s.school !== team) return;
+      coachBy[s.year] = (c.firstName + ' ' + c.lastName).trim();
+      rankBy[s.year] = { pre: s.preseasonRank, post: s.postseasonRank };
+    }));
+    let games = []; try { games = gameIndex(team); } catch (e) { }
+    const bowlBy = {};
+    games.filter(g => g.post).forEach(g => { bowlBy[g.y] = { n: g.n || 'Bowl', r: g.us > g.them ? 'W' : g.us < g.them ? 'L' : 'T', s: g.us + '-' + g.them, o: g.o }; });
+    const seasons = (records || []).map(r => ({
+      y: r.year, w: r.total.wins, l: r.total.losses, t: r.total.ties, cw: (r.conferenceGames || {}).wins, cl: (r.conferenceGames || {}).losses,
+      conf: r.conference || '', coach: coachBy[r.year] || '', ap: (rankBy[r.year] || {}).post || null, pre: (rankBy[r.year] || {}).pre || null, bowl: bowlBy[r.year] || null
+    })).sort((a, b) => b.y - a.y);
+    const tot = seasons.reduce((a, s) => ({ w: a.w + s.w, l: a.l + s.l, t: a.t + (s.t || 0) }), { w: 0, l: 0, t: 0 });
+    const coachList = {};
+    seasons.forEach(s => { if (!s.coach) return; const c = coachList[s.coach] || (coachList[s.coach] = { name: s.coach, from: s.y, to: s.y, w: 0, l: 0, t: 0 });
+      c.from = Math.min(c.from, s.y); c.to = Math.max(c.to, s.y); c.w += s.w; c.l += s.l; c.t += s.t || 0; });
+    return { team: team, seasons: seasons, total: tot, coaches: Object.values(coachList).sort((a, b) => b.to - a.to), gamesFrom: games.length ? Math.min.apply(null, games.map(g => g.y)) : null };
+  });
+}
+
+function thisDay(t, md) {
+  const team = cfbName(t); if (!team) throw new Error('Missing team');
+  const games = gameIndex(team);
+  const tz = BRIEF_TZ();
+  const mdOf = d => Utilities.formatDate(new Date(d), tz, 'MM-dd');
+  md = md || Utilities.formatDate(new Date(), tz, 'MM-dd');
+  const dayNum = s => { const [m, d] = s.split('-').map(Number); return m * 31 + d; };
+  const target = dayNum(md), cur = new Date().getFullYear();
+  let pick = games.filter(g => g.y < cur && mdOf(g.d) === md), exact = true;
+  if (!pick.length) { exact = false; pick = games.filter(g => g.y < cur && Math.abs(dayNum(mdOf(g.d)) - target) <= 3); }
+  pick.sort((a, b) => (b.us - b.them) - (a.us - a.them) || a.y - b.y); // most memorable win first
+  return { team: team, exact: exact, games: pick.slice(0, 6).map(g => Object.assign({ md: mdOf(g.d) }, g)) };
+}
+
+function headToHead(a, b) {
+  const t1 = cfbName(a), t2 = cfbName(b); if (!t1 || !t2) throw new Error('Pick two teams');
+  const key = 'h2h:' + [t1, t2].sort().join('|');
+  const m = cachedCfbd(key, 7, () => {
+    const d = cfbd('/teams/matchup?team1=' + encodeURIComponent(t1) + '&team2=' + encodeURIComponent(t2));
+    return { t1: d.team1, t2: d.team2, w1: d.team1Wins, w2: d.team2Wins, ties: d.ties, start: d.startYear, end: d.endYear,
+      games: (d.games || []).map(g => ({ y: g.season, d: g.date, ht: g.homeTeam, hs: g.homeScore, at: g.awayTeam, as: g.awayScore, w: g.winner, n: g.neutralSite ? 1 : 0, post: g.seasonType === 'postseason' ? 1 : 0, v: g.venue || '' })) };
+  });
+  // orient to the asking team
+  if (m.t1 !== t1) return { t1: t1, t2: t2, w1: m.w2, w2: m.w1, ties: m.ties, start: m.start, end: m.end, games: m.games };
+  return m;
+}
+
+function draftHistory(t) {
+  const team = cfbName(t); if (!team) throw new Error('Missing team');
+  return cachedCfbd('draft:' + team, 30, () => ({ team: team, picks: (cfbd('/draft/picks?school=' + encodeURIComponent(team)) || [])
+    .map(p => ({ y: p.year, r: p.round, p: p.pick, o: p.overall, n: p.name, pos: p.position, nfl: p.nflTeam }))
+    .sort((a, b) => b.y - a.y || a.o - b.o) }));
 }

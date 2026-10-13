@@ -7,6 +7,7 @@ async function renderPlayers(view) {
     <div id="pRes"></div>
     ${recent.length ? `<h3 class="sec-h">Recently viewed</h3><div class="pros" id="pRecent">${recent.map(r => `
       <button class="pro" data-ath="${r.id}" data-lg="${r.lg}">${img(r.img, 'hs')}<span><b>${esc(r.name)}</b><small>${esc(r.sub || '')}</small></span></button>`).join('')}</div>` : ''}
+    <div id="legends"></div>
     <div class="card tip"><h4>💡 Tip</h4><p>Open a college team from <b>My Team</b> and check the <b>${esc(PRO_NICK.Arkansas)}</b>-style tab to see every pro from that school and how they're doing.</p></div>`;
   const q = qs('#pQ', view), res = qs('#pRes', view);
   let timer;
@@ -29,6 +30,7 @@ async function renderPlayers(view) {
   };
   view.onclick = e => { const b = e.target.closest('[data-ath]'); if (b) openPlayer(b.dataset.lg, b.dataset.ath); };
   q.focus();
+  playerLegends(qs('#legends', view));
 }
 
 function cardLinks(name, college) {
@@ -43,7 +45,7 @@ function cardLinks(name, college) {
     ['📚', 'Card checklist (TCDB)', g(`site:tcdb.com ${name}`)],
     ['🏷️', 'COMC listings', g(`site:comc.com ${name}`)]
   ];
-  if (college) links.push(['🎓', 'College / Bowman cards', ebay('Bowman', false)]);
+  if (college) links.push(['🎓', 'College / Bowman cards', ebay('Bowman', false)], ['💰', 'NIL valuation (On3)', g(`site:on3.com ${name} NIL valuation`)]);
   return `<div class="card"><h4>🃏 Trading Cards</h4><div class="cards-links">${links.map(([i, l, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener"><span>${i}</span>${esc(l)}</a>`).join('')}</div>
     <p class="src">Opens live listings; prices come from completed eBay sales.</p></div>`;
 }
@@ -70,7 +72,7 @@ function openPlayer(lg, id) {
     let html = `<div class="pl-hero" style="--tc:#${tc};--ta:#${ta};--tl:url('${esc(logoOf(team))}')">
       ${img(a.headshot?.href, 'pl-hs')}
       <div><small>${a.jersey ? '#' + esc(a.jersey) + ' · ' : ''}${esc(team.displayName || L.name)}</small><h2>${esc(a.displayName)}</h2>
-      ${a.status?.name && a.status.name !== 'Active' ? `<i class="inj">${esc(a.status.name)}</i>` : ''}
+      ${a.active === false ? '<i class="legend">🏛️ Legend · Retired</i>' : a.status?.name && a.status.name !== 'Active' ? `<i class="inj">${esc(a.status.name)}</i>` : ''}
       ${(a.injuries || [])[0]?.status ? `<i class="inj">${esc(a.injuries[0].status)}</i>` : ''}</div>
       ${team.id ? `<button class="pill" data-team="${team.id}">${img(logoOf(team), 'logo xs')} Team</button>` : ''}</div>
       <div class="facts">${facts.map(f => `<span>${esc(f)}</span>`).join('')}</div>`;
@@ -116,4 +118,18 @@ function openPlayer(lg, id) {
     } catch (e) { }
     if (ctx.alive) more.innerHTML = parts.join('');
   });
+}
+
+/* Legends from your school: first-round picks, tap to open their pro career */
+async function playerLegends(el) {
+  const t = [Prefs.get().theme, ...Prefs.favs()].find(f => f && f.lg === 'cfb');
+  if (!el || !t || !gasUrl()) return;
+  try {
+    const d = await histFetch({ action: 'draft', team: t.loc }, 1440);
+    const r1 = (d.picks || []).filter(p => p.r === 1).sort((a, b) => a.y - b.y);
+    if (!r1.length || !el.isConnected) return;
+    el.innerHTML = `<h3 class="sec-h">🏛️ ${esc(t.loc)} legends <small>1st-round picks</small></h3>
+      <div class="chips wrap legends">${r1.slice(-24).reverse().map(p => `<button data-name="${esc(p.n)}">${img(t.logo, 'logo xs')}${esc(p.n)} <small>${p.y}</small></button>`).join('')}</div>`;
+    el.onclick = e => { const b = e.target.closest('[data-name]'); if (b) { e.stopPropagation(); openPlayerByName(b.dataset.name, 'nfl'); } };
+  } catch (e) { }
 }

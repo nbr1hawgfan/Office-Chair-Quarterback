@@ -9,6 +9,7 @@ const App = {
     const view = qs('#view');
     view.onclick = null; view.innerHTML = loadingHTML();
     view.scrollTop = 0; window.scrollTo(0, 0);
+    if (needsSignup()) return renderSignup(view);
     Promise.resolve(this.tabs[tab](view)).catch(e => { view.innerHTML = errHTML(e); });
   }
 };
@@ -16,7 +17,7 @@ const App = {
 async function renderHome(view) {
   const p = Prefs.get(), favs = p.favs;
   const hr = new Date().getHours();
-  const hello = (hr < 12 ? 'Morning' : hr < 17 ? 'Afternoon' : 'Evening') + (p.name ? ', ' + p.name : '');
+  const hello = (hr < 12 ? 'Morning' : hr < 17 ? 'Afternoon' : 'Evening') + (fanName() ? ', ' + fanName() : '');
   if (!favs.length) {
     view.innerHTML = `<div class="hero-empty welcome"><img src="icons/icon-192.png" alt="" class="app-mark"><h2>Welcome to ${esc(CONFIG.APP_NAME)}</h2>
       <p>Pick your teams and the whole app takes on your team's colors. Scores, stats, recruiting, pros from your school, trading cards and the office pick'em — all in one spot.</p>
@@ -29,12 +30,14 @@ async function renderHome(view) {
       ${th ? img(th.logo, 'logo hero-logo') : ''}<div><h2 class="hello">${esc(hello)} 👋</h2>${th ? `<small>${esc(th.dn)} · ${LEAGUES[th.lg].short}</small>` : ''}</div></div>
     <div id="gameDay"></div>
     <div id="rivalCard"></div>
+    <div id="thisDay"></div>
     <h3 class="sec-h">My Teams</h3><div class="my-teams" id="myTeams">${favs.map(f => `<button class="mt-card" data-k="${f.lg}:${f.id}" style="--tc:#${f.c};--ta:#${f.a}">${img(f.logo, 'logo lg')}<b>${esc(f.ab || f.dn)}</b><small>${LEAGUES[f.lg].short}</small><span class="mt-next">…</span></button>`).join('')}</div>
     <h3 class="sec-h">Live & Today</h3><div id="liveNow">${loadingHTML()}</div>
     <h3 class="sec-h">The Clubhouse</h3>${homeTilesHTML(p)}
     <h3 class="sec-h">Jump to a league</h3><div class="lg-grid">${LEAGUE_ORDER.map(k => `<button class="lg-tile" data-lgo="${k}">${lgIcon(k, 'lg-big')}<b>${LEAGUES[k].short}</b><small>${LEAGUES[k].college ? LEAGUES[k].icon + ' NCAA' : 'Pro'}</small></button>`).join('')}</div>`;
   bindGameClicks(qs('#liveNow', view));
   homeRivalryCard(qs('#rivalCard', view));
+  homeThisDay(qs('#thisDay', view));
   GameDay.renderHero(qs('#gdHero', view));
   view.onclick = e => {
     const c = e.target.closest('.mt-card');
@@ -143,6 +146,8 @@ document.addEventListener('DOMContentLoaded', () => {
   qs('#hdrGear').onclick = () => openSettings();
   const t0 = LS.get('tab', 'home'); App.go(App.tabs[t0] && t0 !== 'more' ? t0 : 'home');
   GameDay.check();
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) GameDay.check(); });
+  checkIn();
+  Ticker.init();
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { GameDay.check(); checkIn(); } });
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { });
 });

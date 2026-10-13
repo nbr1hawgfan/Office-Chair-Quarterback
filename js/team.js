@@ -103,6 +103,8 @@ async function renderTeamPage(root, lg, id, setTitle, startTab) {
   const tabs = [{ k: 'sched', label: 'Schedule' }, { k: 'roster', label: 'Roster' }, { k: 'news', label: 'News' }];
   if (L.recruiting) tabs.push({ k: 'recruit', label: 'Recruiting' });
   if (L.college) tabs.push({ k: 'pros', label: PRO_NICK[t.location] || 'Pros' });
+  if (lg === 'cfb') tabs.push({ k: 'history', label: '📜 History' }, { k: 'draft', label: '🏈 Draft' });
+  if (L.college) tabs.push({ k: 'nil', label: '💰 NIL' });
   const wrap = document.createElement('div'); root.appendChild(wrap);
   subTabs(wrap, tabs, (k, body) => {
     if (k === 'sched') return teamSchedule(body, lg, t);
@@ -110,6 +112,9 @@ async function renderTeamPage(root, lg, id, setTitle, startTab) {
     if (k === 'news') return newsList(body, `${SITE}${L.path}/news?team=${t.id}&limit=20`);
     if (k === 'recruit') return teamRecruiting(body, t);
     if (k === 'pros') return teamPros(body, lg, t);
+    if (k === 'history') return teamHistory(body, t);
+    if (k === 'draft') return teamDraft(body, t);
+    if (k === 'nil') return teamNIL(body, lg, t);
   }, tabs.some(x => x.k === startTab) ? startTab : null);
 }
 

@@ -6,7 +6,7 @@ const hourLabel = h => h === 12 ? '12:00 PM' : h > 12 ? `${h - 12}:00 PM` : `${h
 function briefPayload(b) {
   const p = Prefs.get(), ffl = LS.get('ffl', null);
   return {
-    code: b.code, email: b.email, name: p.name || pickemCreds()?.name || '', hour: b.hour, days: b.days,
+    code: b.code, email: b.email, name: fanName(), hour: b.hour, days: b.days,
     teams: p.favs.map(({ lg, id, dn, loc, ab, logo, c, a }) => ({ lg, id, dn, loc, ab, logo, c, a })), theme: p.theme,
     fantasy: b.fantasy && ffl ? { leagueId: ffl.leagueId, season: ffl.season, teamId: ffl.teamId } : null
   };

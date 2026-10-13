@@ -78,3 +78,15 @@ Automatic for your color team:
 
 ## Score ticker
 A scrolling strip under the header with live, today's and last night's scores across every league. Your teams are highlighted and come first; tap a game to open it; hover/hold to pause. Turn it off in Settings.
+
+## History, Draft, Legends & NIL (college)
+Uses the same free `CFBD_KEY` as Recruiting — nothing new to set up.
+- **📜 History tab** (college football team pages): all-time record, every season with coach, conference record, AP final rank and bowl result; best seasons; coaches list; **Head-to-Head** vs any opponent going back to the first meeting.
+- **All-time series** card in every college football Game Center.
+- **🏈 Draft tab**: every NFL draft pick from the school by year; tap a name to open his pro career.
+- **This Day in History** card on Home for your college football teams.
+- **🏛️ Legends**: retired players get a Legend badge; the Players tab shows your school's 1st-round picks as quick links.
+- **Throwback trivia**: up to 4 questions per round built from your school's real history.
+- **💰 NIL tab** (all college sports): links to On3 valuations, roster value, collective and revenue-sharing info, plus a filtered NIL news feed. Player cards for college players get an On3 NIL link.
+
+Notes: the first look at a school takes ~30 seconds (it builds game history since `HISTORY_FROM`, default 1980) and then it's stored in the **HistoryCache** tab for good. The free CFBD tier has a monthly call limit; the app caps itself at `CFBD_MONTHLY` (default 900) calls per month — set that Script Property to match your tier. Basketball/softball history isn't freely available in this depth.

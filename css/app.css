@@ -449,3 +449,63 @@ body.has-livebar .sheet ~ #liveBar,body.has-livebar #liveBar{bottom:calc(var(--n
 .chk{display:flex;align-items:center;gap:8px;margin:10px 2px;font-size:14px}
 .chk input{width:18px;height:18px;accent-color:var(--p)}
 .btn.danger{color:#ff9a9a}
+
+/* ---------- one-time sign-in ---------- */
+body.signup #nav,body.signup #hdrSearch,body.signup #hdrGear,body.signup #ticker{display:none}
+.signup-card{max-width:440px;margin:10px auto;padding:22px 18px;background:var(--card);border:1px solid var(--line);border-radius:18px;text-align:center}
+.signup-card h2{font-size:26px;margin:10px 0 2px}
+.signup-card label,.lbl{display:block;text-align:left;font-weight:700;font-size:13px;margin-top:12px}
+.signup-card label small,.lbl small{font-weight:400;margin-left:4px}
+
+/* ---------- score ticker ---------- */
+#ticker{position:sticky;top:var(--hdr-h,64px);z-index:19;height:38px;overflow:hidden;background:#07080b;border-bottom:1px solid var(--line);
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent);mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent)}
+.tk-track{display:flex;width:max-content;height:100%;animation:tkscroll var(--tk-dur,60s) linear infinite}
+.tk-track.still{animation:none;width:100%;justify-content:center}
+#ticker:hover .tk-track,#ticker:active .tk-track{animation-play-state:paused}
+@keyframes tkscroll{to{transform:translateX(-50%)}}
+.tk-run{display:flex;align-items:center;height:100%;padding-right:10px}
+.tk-msg{align-self:center;color:var(--mut);font-size:12px}
+.tk-lg{display:flex;align-items:center;gap:5px;padding:0 8px 0 14px;font:700 11px Inter;letter-spacing:1px;color:var(--a);white-space:nowrap}
+.tk-lgi{width:16px;height:16px;object-fit:contain}.tk-lgi.em{width:auto;font-size:12px}
+.tk{display:flex;align-items:center;gap:8px;height:28px;padding:0 10px;margin:0 3px;border-radius:8px;white-space:nowrap;font-size:12px;font-weight:600;background:rgba(255,255,255,.04)}
+.tk.fav{background:rgba(var(--p-rgb),.35);box-shadow:inset 0 0 0 1px var(--a)}
+.tk.live{box-shadow:inset 0 0 0 1px rgba(255,59,59,.6)}
+.tk-tm{display:flex;align-items:center;gap:4px;color:#cfd6e0}
+.tk-tm b{color:#fff}.tk-tm.won b{color:var(--win)}
+.tk-logo{width:16px;height:16px;object-fit:contain}
+.tk-st{color:var(--mut);font-size:11px}
+.tk.live .tk-st{color:#ff8a8a}
+
+/* ---------- history / draft / NIL ---------- */
+.best-row{display:flex;gap:10px;align-items:baseline;padding:4px 0}.best-row b{font-family:Oswald;font-size:18px;width:46px}.best-row span{flex:1;font-weight:600}
+.seasons{display:flex;flex-direction:column;gap:4px}
+.sn{display:grid;grid-template-columns:46px 1fr auto;grid-template-areas:"y r x" "y c x";column-gap:10px;padding:8px 10px;background:var(--card);border-radius:10px;align-items:center}
+.sn.ranked{box-shadow:inset 3px 0 0 var(--a)}
+.sn-y{grid-area:y;font-family:Oswald;font-size:18px}.sn-r{grid-area:r;font-weight:700}.sn-r small{font-weight:400}
+.sn-c{grid-area:c;font-size:12px;color:var(--mut)}.sn-x{grid-area:x;display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+.ap,.bowl{font-style:normal;font-size:10px;font-weight:800;padding:2px 6px;border-radius:6px;background:rgba(var(--p-rgb),.35);white-space:nowrap}
+.bowl.w{background:rgba(61,220,132,.2);color:var(--win)}.bowl.l{background:rgba(255,93,93,.18);color:var(--loss)}
+.coaches{display:flex;flex-direction:column;gap:6px}
+.co{display:flex;align-items:center;gap:10px;padding:10px;background:var(--card);border-radius:10px}.co b{flex:1}.co span{font-weight:700}
+.h2h-big{display:flex;align-items:center;justify-content:space-around;text-align:center;margin:6px 0}
+.h2h-big b{display:block;font-family:Oswald;font-size:34px}.h2h-big span{color:var(--mut)}
+.h2h-g{display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--line);font-size:13px}
+.h2h-g b{width:40px}.h2h-g i{font-style:normal;font-weight:800;width:16px}.h2h-g i.w{color:var(--win)}.h2h-g i.l{color:var(--loss)}.h2h-g span{flex:1;font-weight:600}
+.draft{display:grid;gap:6px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.dp{display:flex;align-items:center;gap:10px;padding:9px 10px;background:var(--card);border-radius:10px;width:100%}
+.dp i{font-style:normal;font-size:11px;font-weight:800;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;background:var(--card2)}
+.dp.r1 i{background:var(--p);color:var(--p-ink);box-shadow:0 0 0 1px var(--a)}
+.dp span{flex:1;min-width:0}.dp b{display:block}.dp small{display:block;font-size:12px}
+.thisday{position:relative;overflow:hidden;padding:14px;border-radius:var(--r);margin:10px 0;color:#fff;background:linear-gradient(120deg,#2a2016,#0b0d11 70%);border:1px solid #6b5636}
+.thisday::after{content:"";position:absolute;right:-20px;top:50%;width:120px;height:120px;transform:translateY(-50%);background:var(--tl) center/contain no-repeat;opacity:.13;filter:sepia(1)}
+.thisday small{color:#d9c39a;font-weight:800;letter-spacing:1.2px;font-size:11px;position:relative}
+.thisday p{margin:6px 0 2px;font-size:15px;position:relative}
+.thisday .td-more{display:block;letter-spacing:0;font-weight:500;color:#bfae8c;position:relative}
+.legend{font-style:normal;font-size:11px;font-weight:800;color:#ffe08a;background:rgba(255,215,0,.15);padding:2px 8px;border-radius:6px}
+.tb-tag{display:inline-block;margin-top:6px;font-size:11px;font-weight:800;color:#d9c39a;background:rgba(217,195,154,.12);padding:2px 8px;border-radius:6px}
+.legends button small{opacity:.7}
+.nil .cards-links a{background:rgba(var(--p-rgb),.18)}
+.stat-strip b{white-space:nowrap}
+.stat-strip:has(>div:nth-child(4)) b{font-size:19px}
+.stat-strip:has(>div:nth-child(4)) small{font-size:10px}

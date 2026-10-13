@@ -263,7 +263,8 @@ const Theme = {
     const meta = qs('meta[name=theme-color]'); if (meta) meta.content = this.hex(this.mix(p, [8, 10, 14], .55));
     const lg = qs('#hdrLogo');
     if (lg) { lg.src = t && t.logo ? t.logo : 'icons/icon-192.png'; }
-    const tt = qs('#hdrTeam'); if (tt) tt.textContent = t ? t.dn : 'Pick your team';
+    const fan = this.fan || LS.get('prefs', {}).fan;
+    const tt = qs('#hdrTeam'); if (tt) tt.textContent = [fan, t ? t.dn : 'Pick your team'].filter(Boolean).join(' · ');
     // team logo everywhere: header/sheet watermarks, loader, My Team tab icon, browser tab icon
     this.logo = t && t.logo ? t.logo : '';
     root.setProperty('--logo', this.logo ? `url("${this.logo}")` : 'none');

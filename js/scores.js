@@ -125,6 +125,7 @@ async function renderScores(view) {
 function openGame(lg, eventId) {
   Sheets.open('Game Center', async ctx => {
     const L = LEAGUES[lg];
+    let seriesHTML = null;
     const draw = async () => {
       const d = await getJSON(`${SITE}${L.path}/summary?event=${eventId}`, 15);
       if (!ctx.alive) return;
@@ -146,6 +147,7 @@ function openGame(lg, eventId) {
       const pc = (d.pickcenter || [])[0]; if (pc?.details) info.push(`📈 ${pc.details}${pc.overUnder ? ' · O/U ' + pc.overUnder : ''}`);
       const ss = (d.seasonseries || [])[0]; if (ss?.summary) info.push('🔁 ' + ss.summary);
       if (info.length) html += `<div class="gc-info">${info.map(i => `<span>${esc(i)}</span>`).join('')}</div>`;
+      if (lg === 'cfb' && gasUrl()) html += `<div id="gcSeries">${seriesHTML || ''}</div>`;
 
       // win probability
       const wp = (d.winprobability || []).map(x => x.homeWinPercentage).filter(v => v != null);
@@ -184,6 +186,7 @@ function openGame(lg, eventId) {
       if (lg === 'nfl' && bp.length) html += fantasyBoxHTML(bp);
       if (!leaders.length && !bt.length && st.state === 'pre') html += emptyHTML('Box score shows up once the game starts.');
       ctx.body.innerHTML = html;
+      if (lg === 'cfb' && gasUrl() && seriesHTML === null) { seriesHTML = ''; const el = qs('#gcSeries', ctx.body); gameSeriesCard(el, away, home).then(() => { seriesHTML = el.innerHTML; }); }
       ctx.body.onclick = e => {
         const fs = e.target.closest('[data-fs]');
         if (fs) { LS.set('fflScoring', fs.dataset.fs); const box = qs('#fbox', ctx.body); if (box) box.outerHTML = fantasyBoxHTML(bp); return; }

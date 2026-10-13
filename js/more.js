@@ -131,9 +131,11 @@ newsList = async function (body, url, arts) {
 
 /* ---------- Trivia ---------- */
 function openTrivia() {
-  Sheets.open('Break Room Trivia', ctx => {
+  Sheets.open('Break Room Trivia', async ctx => {
     const best = LS.get('triviaBest', 0);
-    const deck = [...TRIVIA].sort(() => Math.random() - .5).slice(0, 10);
+    ctx.body.innerHTML = loadingHTML('Shuffling questions…');
+    const tb = await throwbackQuestions();
+    const deck = [...TRIVIA].sort(() => Math.random() - .5).slice(0, 10 - tb.length).concat(tb).sort(() => Math.random() - .5);
     let i = 0, score = 0;
     const draw = () => {
       if (i >= deck.length) {
@@ -144,7 +146,7 @@ function openTrivia() {
       }
       const q = deck[i];
       const order = q.a.map((t, k) => ({ t, k })).sort(() => Math.random() - .5);
-      ctx.body.innerHTML = `<div class="trivia"><small>Question ${i + 1} of ${deck.length} · Score ${score}</small><h3>${esc(q.q)}</h3>
+      ctx.body.innerHTML = `<div class="trivia"><small>Question ${i + 1} of ${deck.length} · Score ${score}</small>${q.tb ? '<span class="tb-tag">📜 Throwback</span>' : ''}<h3>${esc(q.q)}</h3>
         ${order.map(o => `<button class="ans" data-k="${o.k}">${esc(o.t)}</button>`).join('')}</div>`;
       ctx.body.onclick = e => {
         const b = e.target.closest('.ans'); if (!b || ctx.body.dataset.lock) return;
@@ -164,7 +166,11 @@ function openSettings() {
     const draw = () => {
       const p = Prefs.get();
       ctx.body.innerHTML = `
-        <div class="card"><h4>Your name</h4><input class="search" id="sName" value="${esc(p.name || '')}" placeholder="Shown on the home screen"></div>
+        <div class="card"><h4>Profile</h4>
+          <label class="lbl">Your name<input class="search" id="sName" value="${esc(p.name || '')}" placeholder="First & last name"></label>
+          <label class="lbl">Fan name<input class="search" id="sFan" value="${esc(p.fan || '')}" maxlength="24" placeholder="e.g. nbr1hawgfan"></label>
+          <p class="hint">Pick'em & rivalry use your sign-in name${pickemCreds() ? `: <b>${esc(pickemCreds().name)}</b>` : ''}.</p></div>
+        <div class="card"><h4>Score ticker</h4><label class="chk"><input type="checkbox" id="sTicker" ${LS.get('tickerOn', true) ? 'checked' : ''}> Show the scrolling score ticker</label></div>
         <div class="card"><h4>Teams & colors</h4>
           ${p.favs.map(f => `<div class="tp-row" style="--tc:#${f.c};--ta:#${f.a}"><span class="swatch"></span>${img(f.logo)}<span class="tp-name">${esc(f.dn)}<small>${LEAGUES[f.lg].short}</small></span>
             <button class="icon-btn ${p.theme && p.theme.lg === f.lg && String(p.theme.id) === String(f.id) ? 'on' : ''}" data-theme="${f.lg}:${f.id}">🎨</button>
@@ -195,7 +201,12 @@ function openSettings() {
         clearMem(); toast('Cache cleared');
       }
     };
-    ctx.body.oninput = e => { if (e.target.id === 'sName') { const p = Prefs.get(); p.name = e.target.value; Prefs.save(p); } };
+    ctx.body.oninput = e => {
+      const p = Prefs.get();
+      if (e.target.id === 'sName') { p.name = e.target.value; Prefs.save(p); }
+      if (e.target.id === 'sFan' && e.target.value.trim().length >= 3) { p.fan = e.target.value.trim(); Prefs.save(p); Theme.apply(p.theme); }
+    };
+    ctx.body.onchange = e => { if (e.target.id === 'sTicker') { LS.set('tickerOn', e.target.checked); Ticker.init(); } };
   });
 }
 
