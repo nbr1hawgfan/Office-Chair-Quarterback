@@ -1,5 +1,5 @@
 /* Office Chair QB service worker — caches the app shell only; live data always comes from the network */
-const VERSION = 'ocq-v1';
+const VERSION = 'ocq-v2';
 const SHELL = ['./', './index.html', './css/app.css', './manifest.json', './icons/icon-192.png', './icons/icon-512.png',
   './js/config.js', './js/core.js', './js/scores.js', './js/team.js', './js/players.js', './js/more.js', './js/pickem.js', './js/app.js'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL))); self.skipWaiting(); });
