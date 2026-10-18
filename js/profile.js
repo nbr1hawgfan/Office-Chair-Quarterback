@@ -9,7 +9,7 @@ function renderSignup(view) {
   view.innerHTML = `<div class="signup-card">
     <img src="icons/icon-192.png" class="app-mark" alt="">
     <h2>Welcome to the Clubhouse</h2>
-    <p class="hint">One quick sign-in and you're set on this device for good.</p>
+    <p class="hint">One quick sign-in and you're set. <b>Already use the app on another phone or computer?</b> Use the same fan name and PIN and your teams and settings come right back.</p>
     <label>Your name<input class="search" id="suReal" placeholder="First & last name" value="${esc(p.name || '')}" autocomplete="name"></label>
     <label>Fan name <small>shown on leaderboards, rivalry board & trash talk</small>
       <input class="search" id="suFan" placeholder="e.g. nbr1hawgfan" maxlength="24" value="${esc(p.fan || creds?.name || '')}" autocomplete="nickname"></label>
@@ -29,9 +29,16 @@ function renderSignup(view) {
         if (!/^\d{4,6}$/.test(pin)) throw new Error('PIN must be 4–6 digits');
         const r = await gasPost({ action: 'join', code, name: fan, pin });
         LS.set('pickem', { code, name: r.name || fan, pin });
-        if (r.returning) toast(`Welcome back, ${r.name || fan}!`);
+        if (r.returning) {
+          // Same fan name + PIN as another device: bring their teams & settings over
+          const p0 = Prefs.get(); p0.fan = r.name || fan; if (!p0.name) p0.name = real; _raw.set('prefs', JSON.stringify(p0));
+          btn.textContent = 'Restoring your teams…';
+          const restored = await Sync.pull(true).catch(() => false);
+          toast(restored ? `Welcome back, ${r.name || fan}! Your teams & settings are restored.` : `Welcome back, ${r.name || fan}!`, 3500);
+        }
       }
-      const np = Prefs.get(); np.name = real; np.fan = pickemCreds()?.name || fan; Prefs.save(np);
+      const np = Prefs.get(); np.name = real || np.name; np.fan = pickemCreds()?.name || fan; Prefs.save(np);
+      Look.apply(); Ticker.init();
       document.body.classList.remove('signup');
       Theme.apply(np.theme);
       checkIn(true);

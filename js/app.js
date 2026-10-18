@@ -153,6 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
   GameDay.check();
   checkIn();
   Ticker.init();
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) { GameDay.check(); checkIn(); } });
+  Sync.check();
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { GameDay.check(); checkIn(); Sync.check(); } else if (_raw.get('syncDirty')) Sync.push(); });
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { });
 });

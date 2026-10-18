@@ -116,4 +116,11 @@ Home → **Stat Center** tile (also in More). Free ESPN stat feeds — nothing t
 On screens 1024px and wider the app uses the full width: the bottom tabs become a left-side rail, text is a little larger, and tiles, game cards, leaders and tables spread across the screen. Phones look the same as before.
 
 ## App icon
-`icons/icon.svg` is the source art (football on a gold swivel-chair base). PNGs: `icon-192`, `icon-512`, `icon-maskable-512` (Android adaptive), `apple-touch-icon` (iPhone home screen) and `favicon-32`. People who already added the app to their home screen may need to remove and re-add it to see the new icon — phones cache home-screen icons.
+`icons/icon.svg` is the source art (football on a gold swivel-chair base). PNGs: `icon-192/256/384/512` (installs, including Windows/Mac desktop), `icon-maskable-192/512` (Android adaptive), `apple-touch-icon` (iPhone home screen) and `favicon-32`. People who already added the app to their home screen may need to remove and re-add it to see the new icon — phones cache home-screen icons.
+
+## ☁️ Backup & sync across devices
+Teams, colors, light/dark, ticker, fantasy league, Morning Brief and other settings are saved to the backend under each person's **fan name + PIN**. Sign in on another phone, computer or browser with the same fan name and PIN and everything comes back — no re-picking teams. Changes save automatically a few seconds after they're made, and other devices pick them up when the app is opened or brought back up (newest change wins). Settings → **Backup & sync** shows the last save and has a **Sync now** button.
+
+Setup (one time): paste the new `gas/Code.gs`, then **Deploy → Manage deployments → edit → New version**. A `Settings` tab is added to the sheet automatically on the first save (one row per person). Delete someone's row there to clear their saved settings.
+
+Anyone already set up gets backed up automatically the first time they open the updated app.

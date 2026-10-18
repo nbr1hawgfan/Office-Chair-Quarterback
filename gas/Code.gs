@@ -31,7 +31,8 @@ const SHEETS = {
   Users: ['Fan Name', 'Real Name', 'Team', 'Device', 'First Seen', 'Last Seen', 'Opens'],
   Activity: ['Time', 'Fan Name', 'Real Name', 'Team', 'Device'],
   HistoryCache: ['Key', 'Fetched', 'Json1', 'Json2', 'Json3', 'Json4', 'Json5', 'Json6'],
-  Brief: ['Email', 'Name', 'Teams', 'Theme', 'Hour', 'Days', 'Fantasy', 'Token', 'Active', 'LastSent', 'Created']
+  Brief: ['Email', 'Name', 'Teams', 'Theme', 'Hour', 'Days', 'Fantasy', 'Token', 'Active', 'LastSent', 'Created'],
+  Settings: ['Fan Name', 'Json', 'UpdatedMs', 'Saved', 'Device']
 };
 
 /* ---------------- entry points ---------------- */
@@ -69,6 +70,8 @@ function doPost(e) {
     if (b.action === 'post') return out(addPost(b));
     if (b.action === 'react') return out(react(b));
     if (b.action === 'hello') return out(hello(b));
+    if (b.action === 'saveSettings') return out(saveSettings(b));
+    if (b.action === 'loadSettings') return out(loadSettings(b));
     if (b.action === 'briefSave') return out(briefSave(b));
     if (b.action === 'briefTest') return out(briefTest(b));
     if (b.action === 'briefStop') return out(briefStop(b));
@@ -776,4 +779,32 @@ function draftHistory(t) {
   return cachedCfbd('draft:' + team, 30, () => ({ team: team, picks: (cfbd('/draft/picks?school=' + encodeURIComponent(team)) || [])
     .map(p => ({ y: p.year, r: p.round, p: p.pick, o: p.overall, n: p.name, pos: p.position, nfl: p.nflTeam }))
     .sort((a, b) => b.y - a.y || a.o - b.o) }));
+}
+
+/* ---------------- settings sync ----------------
+   Each person's teams, colors and app settings, keyed to their fan name + PIN, so signing in
+   on another phone or computer brings everything back. Newest change wins. */
+function settingsRow(name) {
+  const v = sh('Settings').getDataRange().getValues();
+  for (let i = 1; i < v.length; i++) if (norm(v[i][0]) === norm(name)) return { i: i + 1, r: v[i] };
+  return null;
+}
+function saveSettings(b) {
+  const name = checkUser(b.code, b.name, b.pin);
+  const json = JSON.stringify(b.data || {});
+  if (json.length > 45000) throw new Error('Settings too large to save');
+  const t = Number(b.t) || Date.now();
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    const hit = settingsRow(name), s = sh('Settings');
+    if (hit && Number(hit.r[2]) > t) return { ok: true, stale: true, updated: Number(hit.r[2]) };
+    const row = [name, json, t, new Date(), String(b.device || '').slice(0, 40)];
+    if (hit) s.getRange(hit.i, 1, 1, row.length).setValues([row]); else s.appendRow(row);
+    return { ok: true, updated: t };
+  } finally { lock.releaseLock(); }
+}
+function loadSettings(b) {
+  const name = checkUser(b.code, b.name, b.pin);
+  const hit = settingsRow(name);
+  return hit ? { data: safeJSON(hit.r[1]), updated: Number(hit.r[2]) || 0 } : { data: null, updated: 0 };
 }

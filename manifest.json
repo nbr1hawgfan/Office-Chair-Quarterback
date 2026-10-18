@@ -1,4 +1,5 @@
 {
+  "id": "./index.html",
   "name": "Office Chair QB",
   "short_name": "Chair QB",
   "description": "Scores, stats, NFL & NBA leaders, recruiting, pros from your school, trading cards and the office pick'em.",
@@ -15,22 +16,34 @@
       "purpose": "any"
     },
     {
+      "src": "icons/icon-256.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
       "src": "icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icons/icon-maskable-512.png",
-      "sizes": "512x512",
+      "src": "icons/icon-maskable-192.png",
+      "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "icons/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

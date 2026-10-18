@@ -170,6 +170,9 @@ function openSettings() {
           <label class="lbl">Your name<input class="search" id="sName" value="${esc(p.name || '')}" placeholder="First & last name"></label>
           <label class="lbl">Fan name<input class="search" id="sFan" value="${esc(p.fan || '')}" maxlength="24" placeholder="e.g. nbr1hawgfan"></label>
           <p class="hint">Pick'em & rivalry use your sign-in name${pickemCreds() ? `: <b>${esc(pickemCreds().name)}</b>` : ''}.</p></div>
+        <div class="card"><h4>☁️ Backup & sync</h4>${Sync.ready()
+          ? `<p class="hint">Your teams, colors and settings are saved to <b>${esc(pickemCreds().name)}</b>. Sign in with the same fan name and PIN on any phone or computer and everything comes with you. Last saved: <b id="sSyncAt">${esc(Sync.lastSavedText())}</b></p><button class="btn ghost" id="sSync">Sync now</button>`
+          : `<p class="hint">Sign in with your fan name and PIN to back up your teams and use them on other devices.</p>`}</div>
         <div class="card"><h4>Look</h4><div class="seg" id="sLook">${[['dark', '🌙 Dark'], ['light', '☀️ Light'], ['auto', '📱 Match phone']].map(([k, l]) => `<button data-look="${k}" class="${Look.get() === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
         <div class="card"><h4>Score ticker</h4><label class="chk"><input type="checkbox" id="sTicker" ${LS.get('tickerOn', true) ? 'checked' : ''}> Show the scrolling score ticker</label></div>
         <div class="card"><h4>Teams & colors</h4>
@@ -191,6 +194,13 @@ function openSettings() {
       if (t.id === 'sAdd') return openTeamPicker();
       const lk = t.closest('[data-look]'); if (lk) { Look.set(lk.dataset.look); qsa('#sLook button', ctx.body).forEach(b => b.classList.toggle('on', b === lk)); return; }
       if (t.id === 'sBrief') return openBrief();
+      if (t.id === 'sSync') {
+        t.textContent = 'Syncing…';
+        const ok = _raw.get('syncDirty') ? await Sync.push() : true;
+        const changed = await Sync.pull(true);
+        if (changed) { Sync.refreshUI(); draw(); } else { await Sync.push(); const at = qs('#sSyncAt', ctx.body); if (at) at.textContent = Sync.lastSavedText(); t.textContent = 'Sync now'; }
+        return toast(ok ? '☁️ All synced' : 'Couldn\'t reach the backend — will retry');
+      }
       if (t.id === 'sParty') { const th = Prefs.get().theme; return confetti(th ? [`#${th.c}`, `#${th.a}`, '#ffffff'] : ['#1f6feb', '#f2c94c', '#fff']); }
       if (t.dataset.theme) { const [lg, id] = t.dataset.theme.split(':'); const f = Prefs.favs().find(x => x.lg === lg && String(x.id) === id); if (f) Prefs.setTheme(f); return draw(); }
       if (t.dataset.rm) { const [lg, id] = t.dataset.rm.split(':'); const f = Prefs.favs().find(x => x.lg === lg && String(x.id) === id); if (f) Prefs.toggleFav(f); return draw(); }
