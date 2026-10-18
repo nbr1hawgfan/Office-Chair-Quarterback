@@ -1,7 +1,7 @@
 /* Office Chair QB service worker — caches the app shell only; live data always comes from the network */
-const VERSION = 'ocq-v12';
-const SHELL = ['./', './index.html', './css/app.css', './manifest.json', './icons/icon-192.png', './icons/icon-512.png',
-  './js/config.js', './js/core.js', './js/scores.js', './js/team.js', './js/players.js', './js/more.js', './js/pickem.js', './js/fantasy.js', './js/rivalry.js', './js/brief.js', './js/gameday.js', './js/profile.js', './js/ticker.js', './js/history.js', './js/clips.js', './js/app.js'];
+const VERSION = 'ocq-v13';
+const SHELL = ['./', './index.html', './css/app.css', './manifest.json', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png', './icons/icon.svg',
+  './js/config.js', './js/core.js', './js/scores.js', './js/team.js', './js/players.js', './js/more.js', './js/pickem.js', './js/fantasy.js', './js/rivalry.js', './js/brief.js', './js/gameday.js', './js/profile.js', './js/ticker.js', './js/history.js', './js/clips.js', './js/stats.js', './js/app.js'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== VERSION).map(k => caches.delete(k)))));

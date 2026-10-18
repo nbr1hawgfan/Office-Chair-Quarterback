@@ -110,6 +110,7 @@ function homeTilesHTML(p) {
     ['pickem', '🏆', "Pick'em", pk ? 'Make picks' : 'Join league', 'hot'],
     ['rival', '⚔️', 'Office Rivalry', 'Board · trash talk', 'hot'],
     ['clips', '🎬', 'Highlights', 'Swipe through clips', 'hot'],
+    ['stats', '📈', 'Stat Center', 'NFL & NBA leaders', 'hot'],
     cf ? ['pros', cf.logo, PRO_NICK[cf.loc] || 'Pros', cf.loc + ' in the pros', 'logo'] : null,
     cfb ? ['recruit', cfb.logo, 'Recruiting', cfb.loc + ' commits', 'logo'] : null,
     ['myteam', p.theme?.logo || '⭐', 'My Team', p.theme ? p.theme.ab || p.theme.dn : 'Pick a team', p.theme ? 'logo' : ''],
@@ -126,7 +127,7 @@ function homeTilesHTML(p) {
 function runTile(k, p) {
   const cf = collegeFav(p), cfb = [p.theme, ...p.favs].find(f => f && f.lg === 'cfb');
   const map = {
-    rival: () => openRivalry(), clips: () => openClipFeed(), brief: openBrief, ffl: openFantasy, pickem: openPickem, stand: openStandings, rank: openRankings, news: openNews, trivia: openTrivia,
+    rival: () => openRivalry(), stats: () => openStats(), clips: () => openClipFeed(), brief: openBrief, ffl: openFantasy, pickem: openPickem, stand: openStandings, rank: openRankings, news: openNews, trivia: openTrivia,
     teams: () => openTeamPicker(), settings: openSettings,
     scores: () => App.go('scores'), players: () => App.go('players'), myteam: () => App.go('team'),
     pros: () => cf && openTeam(cf.lg, cf.id, 'pros'), recruit: () => cfb && openTeam('cfb', cfb.id, 'recruit')

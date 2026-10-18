@@ -105,6 +105,7 @@ async function renderTeamPage(root, lg, id, setTitle, startTab) {
   if (L.college) tabs.push({ k: 'pros', label: PRO_NICK[t.location] || 'Pros' });
   if (lg === 'cfb') tabs.push({ k: 'history', label: '📜 History' }, { k: 'draft', label: '🏈 Draft' });
   if (L.college) tabs.push({ k: 'nil', label: '💰 NIL' });
+  if (STATS_LG.includes(lg)) tabs.splice(1, 0, { k: 'ranks', label: '📈 Stat Ranks' });
   const wrap = document.createElement('div'); root.appendChild(wrap);
   subTabs(wrap, tabs, (k, body) => {
     if (k === 'sched') return teamSchedule(body, lg, t);
@@ -115,6 +116,7 @@ async function renderTeamPage(root, lg, id, setTitle, startTab) {
     if (k === 'history') return teamHistory(body, t);
     if (k === 'draft') return teamDraft(body, t);
     if (k === 'nil') return teamNIL(body, lg, t);
+    if (k === 'ranks') return teamRanks(body, lg, t);
   }, tabs.some(x => x.k === startTab) ? startTab : null);
 }
 

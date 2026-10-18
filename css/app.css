@@ -451,6 +451,8 @@ body.has-livebar .sheet ~ #liveBar,body.has-livebar #liveBar{bottom:calc(var(--n
 .btn.danger{color:#ff9a9a}
 
 /* ---------- one-time sign-in ---------- */
+body.signup{padding-left:0!important}
+body.signup .app-hdr,body.signup #ticker{margin-left:0!important}
 body.signup #nav,body.signup #hdrSearch,body.signup #hdrGear,body.signup #ticker{display:none}
 .signup-card{max-width:440px;margin:10px auto;padding:22px 18px;background:var(--card);border:1px solid var(--line);border-radius:18px;text-align:center}
 .signup-card h2{font-size:26px;margin:10px 0 2px}
@@ -590,3 +592,127 @@ html.light .stat-strip div{border-bottom-color:var(--accent)}
 .clip-prog{position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(255,255,255,.2)}
 .clip-prog i{display:block;height:100%;width:0;background:var(--a)}
 html.light .clip-th small{color:var(--txt)}
+
+/* ===================== Stat Center (NFL & NBA) ===================== */
+.st-note{font-size:12.5px;color:var(--mut);background:var(--card);border:1px solid var(--line);border-left:3px solid var(--a);border-radius:10px;padding:9px 12px;margin:2px 0 12px}
+.st-note b{color:var(--txt)}
+.st-sub{font-family:Inter;text-transform:none;letter-spacing:0;font-size:11px;color:var(--mut);background:var(--card2);padding:1px 8px;border-radius:10px;margin-left:6px;vertical-align:middle}
+.st-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
+.st-grid .card{margin:0}
+.ld-card{display:flex;flex-direction:column}
+.ld-card .ld-list{flex:1}
+.ld-card .loading{padding:18px}
+.ld-row{display:flex;align-items:center;gap:10px;width:100%;padding:7px 4px;border-bottom:1px solid var(--line);border-radius:8px}
+.ld-row:last-child{border-bottom:0}
+.ld-row:hover{background:rgba(255,255,255,.04)}
+.ld-row.fav{background:rgba(var(--p-rgb),.18)}
+.ld-row:first-child .ld-val{color:var(--a);font-size:22px}
+.ld-row:first-child img.hs{width:46px;height:46px;box-shadow:0 0 0 2px var(--a)}
+.ld-rk{font-style:normal;font-family:Oswald;font-size:15px;color:var(--mut);min-width:22px;text-align:center}
+.ld-rk.good{color:var(--win)}.ld-rk.bad{color:var(--loss)}
+.ld-nm{flex:1;min-width:0}
+.ld-nm b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ld-nm small{display:flex;align-items:center;gap:4px;font-size:11.5px}
+.ld-val{font-family:Oswald;font-size:19px;font-weight:700;min-width:48px;text-align:right}
+.ld-more{margin-top:8px;align-self:flex-end;font-size:12.5px;font-weight:700;color:var(--accent);padding:6px 4px}
+.st-tbl{background:var(--card);border:1px solid var(--line);border-radius:var(--r);max-height:72vh;overflow:auto}
+.stats.wide{width:100%;border-collapse:collapse}
+.stats.wide th,.stats.wide td{font-size:13px;padding:8px 9px}
+.stats.wide th.pl,.stats.wide td.pl{text-align:left;position:sticky;left:0;background:var(--card);z-index:1}
+.stats.wide td:first-child,.stats.wide th:first-child{position:static}
+.stats.wide th{z-index:2}
+.stats.wide th.pl{z-index:3}
+.stats th.sortable{cursor:pointer;user-select:none}
+.stats th.sortable:hover{color:var(--txt)}
+.stats th.on{color:var(--a)}
+.stats td.hi{font-weight:800;color:var(--txt);background:rgba(var(--p-rgb),.10)}
+.pl-cell{display:flex;align-items:center;gap:8px;text-align:left;color:var(--txt)}
+.pl-cell b{display:block;font-size:13px}
+.pl-cell small{display:flex;align-items:center;gap:4px;font-size:11px;font-weight:400}
+.stats.pi tr[data-team]{cursor:pointer}
+.bars{display:flex;flex-direction:column;gap:2px}
+.bar-row{display:flex;align-items:center;gap:10px;width:100%;padding:5px 4px;border-radius:8px}
+.bar-row:hover{background:rgba(255,255,255,.04)}
+.bar-row.fav{background:rgba(var(--p-rgb),.2)}
+.bar-nm{width:130px;flex:none;font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar{flex:1;height:12px;border-radius:6px;background:var(--bg2);overflow:hidden}
+.bar>span{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,var(--p),var(--a))}
+.bar-v{font-family:Oswald;font-size:16px;min-width:58px;text-align:right}
+.rank-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.rank-tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 12px;border-top:3px solid var(--line)}
+.rank-tile small{display:block;font-size:11.5px}
+.rank-tile b{display:block;font-family:Oswald;font-size:24px;margin:2px 0}
+.rank-tile span{font-size:12px;font-weight:700;color:var(--mut)}
+.rank-tile.good{border-top-color:var(--win)}.rank-tile.good span{color:var(--win)}
+.rank-tile.bad{border-top-color:var(--loss)}.rank-tile.bad span{color:var(--loss)}
+.pi-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.pi-strip>div{background:var(--bg2);border-radius:10px;padding:10px}
+.pi-strip small{display:block;font-size:11px}
+.pi-strip b{font-family:Oswald;font-size:22px}
+.pi-strip span{margin-left:6px;font-size:12px;color:var(--a);font-weight:700}
+.inj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;align-items:start}
+.inj-grid .card{margin:0}
+.inj-team summary{display:flex;align-items:center;gap:8px}
+.inj-team summary h4{margin:0}
+.inj-row{display:flex;align-items:flex-start;gap:10px;width:100%;padding:8px 2px;border-bottom:1px solid var(--line)}
+.inj-row:last-child{border-bottom:0}
+.inj-main{flex:1;min-width:0}
+.inj-main small{font-size:11.5px}
+.inj-what{display:block;color:var(--txt);opacity:.85}
+.inj-note{display:block;margin-top:2px;line-height:1.3}
+.inj-st{font-style:normal;font-size:11px;font-weight:800;padding:3px 8px;border-radius:7px;white-space:nowrap;background:var(--card2)}
+.inj-st.out{background:rgba(255,93,93,.16);color:var(--loss)}
+.inj-st.dbt{background:rgba(255,140,60,.16);color:#ff9a4d}
+.inj-st.q{background:rgba(255,200,70,.16);color:#e9b23c}
+html.light .ld-row:hover,html.light .bar-row:hover{background:rgba(0,0,0,.04)}
+html.light .stats.wide th.pl,html.light .stats.wide td.pl{background:var(--card)}
+
+/* ===================== Desktop & laptop: use the whole screen ===================== */
+@media (min-width:760px){
+  #view{max-width:none;padding:18px 22px}
+  .sheet-bd{max-width:none;padding:18px 22px 40px}
+  .lg-grid{grid-template-columns:repeat(10,1fr)}
+}
+@media (min-width:1024px){
+  :root{--nav-h:0px;--rail:100px}
+  html,body{font-size:16px}
+  body{padding-left:var(--rail);padding-bottom:28px}
+  /* header + ticker stretch across, nav becomes a left rail under them */
+  .app-hdr{margin-left:calc(-1 * var(--rail));padding-left:26px;padding-right:26px}
+  .hdr-brand img{width:46px;height:46px}
+  .hdr-brand b{font-size:22px}
+  .icon-btn{width:42px;height:42px}
+  #ticker{margin-left:calc(-1 * var(--rail))}
+  #nav{top:0;bottom:0;right:auto;width:var(--rail);height:auto;flex-direction:column;justify-content:flex-start;gap:6px;
+    padding:calc(var(--hdr-h,74px) + 16px) 0 20px;border-top:0;border-right:1px solid var(--line);z-index:15}
+  body.has-ticker #nav{padding-top:calc(var(--hdr-h,74px) + 54px)}
+  #nav button{flex:none;height:78px;font-size:12.5px;font-weight:600;border-radius:0}
+  #nav button:hover{background:rgba(255,255,255,.04);color:var(--txt)}
+  #nav button span{font-size:24px}
+  #nav button.on{background:rgba(var(--p-rgb),.16)}
+  #nav button.on::before{top:14%;bottom:14%;left:0;right:auto;width:4px;height:auto;border-radius:0 4px 4px 0}
+  #nav button.badge::after{top:14px;right:26px}
+  #view{max-width:1680px;padding:24px 34px}
+  .sheet-hd{padding-left:26px;padding-right:26px}
+  .sheet-hd h2{font-size:22px}
+  .sheet-bd{max-width:1680px;padding:24px 34px 48px}
+  .tiles{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px}
+  .tile{padding:18px 8px 16px}
+  .tile b{font-size:14.5px}.tile small{font-size:12px}
+  .games{grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
+  .my-teams{flex-wrap:wrap}
+  .home-hero{padding:22px 24px}
+  .sec-h{font-size:16px;margin-top:26px}
+  .menu{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr))}
+  .leaders{grid-template-columns:repeat(4,1fr)}
+  .stats th,.stats td{font-size:13.5px;padding:8px 10px}
+  .stats.stand{width:100%}
+  .bar-nm{width:190px}
+  #liveBar{left:calc(var(--rail) + 20px);right:20px}
+  body.has-livebar{padding-bottom:84px}
+  #toast{bottom:28px}
+  .signup-card{max-width:520px}
+}
+@media (min-width:1500px){
+  .st-grid{grid-template-columns:repeat(4,1fr)}
+}

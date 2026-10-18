@@ -101,3 +101,19 @@ ESPN posts short highlight clips for finished games, and the app plays them righ
 - **Game Center:** a 🎬 Highlights card when ESPN has clips for that game.
 - **Player cards:** a 🎬 Videos row from that player's news.
 Clips usually appear a few hours after a game ends; not every game gets them (fewer for smaller college games and softball). No live game streams — those are licensed to TV networks.
+
+## 📈 Stat Center (NFL & NBA)
+Home → **Stat Center** tile (also in More). Free ESPN stat feeds — nothing to set up.
+- **Leaders** — top 5 in 12 NFL categories (pass/rush/rec yards & TDs, passer rating, receptions, sacks, tackles, INTs, total TDs) and 10 NBA categories (PPG, RPG, APG, STL, BLK, 3PM, FG%, FT%, double-doubles, minutes). "Full list ›" jumps to the full table.
+- **Player Stats** — full sortable tables (tap any column header). NFL: Passing, Rushing, Receiving, Defense, Kicking. NBA: Per Game, Shooting, Season Totals. Filter by player or team; "Load more" pages 50 at a time. Your teams' players are highlighted.
+- **Team Ranks** — every team ranked on offense, defense and other stats with bar charts (lower-is-better stats like points allowed rank correctly).
+- **FPI / BPI** — ESPN Power Index: rating, offense/defense, record, projected record, playoff, division and title odds.
+- **Injuries** — league-wide report, your teams first, filter by Out / Doubtful / Questionable.
+- **Team pages** for NFL & NBA teams get a **📈 Stat Ranks** tab: where that team ranks in each stat (green = top quarter, red = bottom quarter), its FPI/BPI odds and its injury report.
+- Before a new NBA season has games, it shows last season's final numbers with a note, then switches over on its own.
+
+## 🖥️ Computers & laptops
+On screens 1024px and wider the app uses the full width: the bottom tabs become a left-side rail, text is a little larger, and tiles, game cards, leaders and tables spread across the screen. Phones look the same as before.
+
+## App icon
+`icons/icon.svg` is the source art (football on a gold swivel-chair base). PNGs: `icon-192`, `icon-512`, `icon-maskable-512` (Android adaptive), `apple-touch-icon` (iPhone home screen) and `favicon-32`. People who already added the app to their home screen may need to remove and re-add it to see the new icon — phones cache home-screen icons.

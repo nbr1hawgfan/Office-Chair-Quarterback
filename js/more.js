@@ -217,6 +217,7 @@ function renderMore(view) {
   const items = [
     ['🏆', 'Office Pick\'em', 'Weekly NFL + college picks & leaderboard', openPickem],
     ['🏈', 'Fantasy Football', 'Your ESPN league: matchups, standings, rosters', openFantasy],
+    ['📈', 'Stat Center', 'NFL & NBA leaders, team ranks, FPI/BPI, injuries', () => openStats()],
     ['📊', 'Standings', 'Every league, SEC first for college', openStandings],
     ['🔢', 'Polls & Rankings', 'AP, Coaches, CFP, softball & baseball polls', openRankings],
     ['📰', 'News', 'Your teams or any league', openNews],
