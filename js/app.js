@@ -68,13 +68,19 @@ async function renderHome(view) {
     else if (st.state === 'post') card.textContent = `${me.winner ? 'W' : 'L'} ${scoreVal(me.score)}-${scoreVal(opp.score)}`;
     else card.textContent = `${at} ${opp.team?.abbreviation || ''} · ${sameDay(ev.date, new Date()) ? fmtTime(ev.date) : fmtDay(ev.date)}`;
     const isTheme = p.theme && p.theme.lg === f.lg && String(p.theme.id) === String(f.id); // theme team gets the big Game Day hero instead
-    if (!isTheme && (st.state === 'in' || (st.state === 'pre' && sameDay(ev.date, new Date())))) gameDay.push({ f, ev, opp, at, st });
+    if (!isTheme && (st.state === 'in' || (st.state !== 'in' && sameDay(ev.date, new Date())))) gameDay.push({ f, ev, opp, me, at, st });
   }).then(() => {
     const g = qs('#gameDay', view); if (!g || !gameDay.length) return;
     qs('#nav [data-tab="team"]').classList.add('badge');
-    g.innerHTML = gameDay.map(({ f, ev, opp, at, st }) => `<button class="gameday" data-gd="${f.lg}:${ev.id}" style="--tc:#${f.c};--ta:#${f.a}">
-      <span class="gd-tag">${st.state === 'in' ? '<i class="dot"></i> LIVE' : '🔥 GAME DAY'}</span>
-      ${img(f.logo, 'logo lg')}<b>${esc(f.dn)}</b><span>${at} ${esc(opp.team?.displayName || '')}</span><small>${st.state === 'in' ? esc(st.shortDetail || '') : esc(fmtTime(ev.date) + (broadcastOf(ev) ? ' · ' + broadcastOf(ev) : ''))}</small></button>`).join('');
+    gameDay.sort((a, b) => ({ in: 0, pre: 1, post: 2 }[a.st.state] ?? 1) - ({ in: 0, pre: 1, post: 2 }[b.st.state] ?? 1));
+    g.innerHTML = gameDay.map(({ f, ev, opp, me, at, st }) => {
+      const ms = Number(scoreVal(me.score)), os = Number(scoreVal(opp.score)), started = st.state !== 'pre';
+      const res = st.state === 'post' ? (me.winner ? 'won' : opp.winner ? 'lost' : '') : '';
+      const sc = started ? `<span class="gd-sc ${res}"><span class="gd-sc-row ${ms > os ? 'lead' : ''}"><i>${esc(f.ab || me.team?.abbreviation || '')}</i><b>${esc(scoreVal(me.score))}</b></span>
+        <span class="gd-sc-row ${os > ms ? 'lead' : ''}"><i>${esc(opp.team?.abbreviation || '')}</i><b>${esc(scoreVal(opp.score))}</b></span></span>` : '';
+      return `<button class="gameday ${started ? 'has-sc' : ''}" data-gd="${f.lg}:${ev.id}" style="--tc:#${f.c};--ta:#${f.a}">
+      <span class="gd-tag">${st.state === 'in' ? '<i class="dot"></i> LIVE' : st.state === 'post' ? (res === 'won' ? '✅ FINAL · W' : res === 'lost' ? 'FINAL · L' : 'FINAL') : '🔥 GAME DAY'}</span>
+      ${img(f.logo, 'logo lg')}<b>${esc(f.dn)}</b><span>${at} ${esc(opp.team?.displayName || '')}</span><small>${started ? esc(st.shortDetail || '') : esc(fmtTime(ev.date) + (broadcastOf(ev) ? ' · ' + broadcastOf(ev) : ''))}</small>${sc}</button>`; }).join('');
   });
 
   // live across leagues

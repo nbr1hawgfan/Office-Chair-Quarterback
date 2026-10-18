@@ -716,3 +716,18 @@ html.light .stats.wide th.pl,html.light .stats.wide td.pl{background:var(--card)
 @media (min-width:1500px){
   .st-grid{grid-template-columns:repeat(4,1fr)}
 }
+
+/* live / final score on the home game day cards */
+.gameday.has-sc{grid-template-columns:auto 1fr auto;align-content:center}
+.gameday.has-sc img{grid-column:1}
+.gd-sc{grid-column:3;grid-row:1/4;align-self:end;display:flex;flex-direction:column;gap:2px;min-width:92px;margin-top:22px;
+  padding:6px 10px;border-radius:10px;background:rgba(0,0,0,.32);font-family:Oswald}
+.gd-sc-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;opacity:.7}
+.gd-sc-row.lead{opacity:1}
+.gd-sc-row i{font-style:normal;font-size:13px;letter-spacing:.5px}
+.gd-sc-row b{font-size:26px;line-height:1.05}
+.gd-sc.won{box-shadow:inset 0 0 0 2px var(--win)}
+.gd-sc.lost{opacity:.85}
+@media (min-width:1024px){.gd-sc{min-width:130px;padding:8px 14px}.gd-sc-row b{font-size:32px}.gd-sc-row i{font-size:15px}}
+.gameday>.logo{grid-column:1;grid-row:1/4;align-self:center}
+.gameday>b,.gameday>span:not(.gd-tag):not(.gd-sc):not(.logo),.gameday>small{grid-column:2}
