@@ -8,9 +8,9 @@ function scoreboardUrl(lg, o = {}) {
   if (L.mode === 'week') { if (o.week) { p.set('week', o.week); if (o.seasontype) p.set('seasontype', o.seasontype); } }
   else if (o.date) p.set('dates', ymd(o.date));
   if (L.college && o.filter) {
-    const g = L.groups || {};
+    const g = L.groups || {}, conf = CONFERENCES[o.filter];
     if (o.filter === 'all' && g.all) p.set('groups', g.all);
-    if (o.filter === 'sec') p.set('groups', g.sec || g.all || '');
+    if (conf) p.set('groups', conf.groups?.[lg] || g.all || '');
     if (!p.get('groups')) p.delete('groups');
   }
   p.set('limit', '400');
@@ -18,10 +18,39 @@ function scoreboardUrl(lg, o = {}) {
 }
 
 async function fetchScoreboard(lg, o = {}) {
-  const d = await getJSON(scoreboardUrl(lg, o), 20);
+  let d = await getJSON(scoreboardUrl(lg, o), 20);
   let events = d.events || [];
-  if (LEAGUES[lg].college && o.filter === 'sec') events = events.filter(isSEC);
+  const conf = LEAGUES[lg].college && CONFERENCES[o.filter];
+  if (conf) {
+    events = events.filter(e => inConf(e, o.filter, lg));
+    // Safety net: if ESPN's conference feed came back empty/wrong, pull all D-I and filter by school list
+    if (!events.length && conf.groups?.[lg] && LEAGUES[lg].groups?.all) {
+      const d2 = await getJSON(scoreboardUrl(lg, { ...o, filter: 'all' }), 20);
+      const ev2 = (d2.events || []).filter(e => inConf(e, o.filter, lg));
+      if (ev2.length) { d = d2; events = ev2; }
+    }
+  }
   return { data: d, events };
+}
+
+/* Conference membership — football has a few football-only / non-football members */
+function confSchools(key, lg) {
+  const c = CONFERENCES[key]; if (!c) return [];
+  if (lg !== 'cfb') return c.schools;
+  return c.schools.filter(x => !(c.noFootball || []).includes(x)).concat(c.footballOnly || []);
+}
+function inConf(ev, key, lg) {
+  const list = confSchools(key, lg), { away, home } = sides(ev);
+  return [away, home].some(c => list.includes(c.team?.location));
+}
+/* The conference of the user's first followed college team (gets a ★ and goes first) */
+function myConf() {
+  for (const f of Prefs.favs()) {
+    if (!COLLEGE_SPORTS.includes(f.lg)) continue;
+    const k = CONF_ORDER.find(k => confSchools(k, f.lg).includes(f.loc));
+    if (k) return k;
+  }
+  return null;
 }
 
 function gameCardHTML(ev, lg) {
@@ -70,8 +99,14 @@ async function renderScores(view) {
   const drawFilter = () => {
     const f = qs('#sFilter', view);
     if (!L().college) { f.innerHTML = ''; return; }
-    const opts = [['top', L().key === 'cfb' || L().rank ? 'Top 25 / Featured' : 'Featured'], ['sec', 'SEC'], ['all', 'All D-I']];
-    f.innerHTML = `<div class="seg small">${opts.map(([k, l]) => `<button data-f="${k}" class="${s.filter === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+    const mine = myConf(), confs = mine ? [mine, ...CONF_ORDER.filter(k => k !== mine)] : CONF_ORDER;
+    const btn = (k, inner) => `<button data-f="${k}" class="${s.filter === k ? 'on' : ''}">${inner}</button>`;
+    const confImg = k => `<img class="conf-ico" src="${CONF_LOGO(k)}" alt="" loading="lazy" onerror="this.remove()">`;
+    f.innerHTML = `<div class="chips conf-chips">
+      ${btn('top', L().rank ? '🏆 Top 25' : '⭐ Featured')}
+      ${confs.map(k => btn(k, `${confImg(k)}${CONFERENCES[k].name}${k === mine ? ' <small>★</small>' : ''}`)).join('')}
+      ${btn('all', `${lgIcon(s.lg)}All D-I`)}</div>`;
+    const on = qs('.conf-chips button.on', f); if (on) on.scrollIntoView({ block: 'nearest', inline: 'center' });
   };
 
   const load = async (quiet) => {

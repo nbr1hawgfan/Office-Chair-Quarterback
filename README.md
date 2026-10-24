@@ -4,7 +4,7 @@ Sports-only PWA for the office. Dark, mobile-first, static files on GitHub Pages
 
 ## What's in it
 - **Team colors** — pick a team and the whole app (header, buttons, tabs) switches to its colors. Saved per phone.
-- **Scores** — NFL, CFB, NBA, men's & women's college hoops, MLB, college baseball, **college softball**, NHL, WNBA. College filters: Top 25 / **SEC** / All D-I. Auto-refreshes while games are live.
+- **Scores** — NFL, CFB, NBA, men's & women's college hoops, MLB, college baseball, **college softball**, NHL, WNBA. College filters: Top 25 / **SEC, Big Ten, Big 12, ACC, Pac-12, American** / All D-I (your team's conference gets a ★ and goes first). Auto-refreshes while games are live.
 - **Game Center** — box score, team stats, leaders, scoring plays, win probability, odds, TV, season series.
 - **My Team** — next game countdown, schedule, roster (with injuries), news, and links to the same school's other sports (OU football → OU softball in one tap).
 - **Recruiting** (college football) — class rank, commits with stars and ratings, transfer portal in/out.

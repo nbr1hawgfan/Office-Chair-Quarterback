@@ -731,3 +731,9 @@ html.light .stats.wide th.pl,html.light .stats.wide td.pl{background:var(--card)
 @media (min-width:1024px){.gd-sc{min-width:130px;padding:8px 14px}.gd-sc-row b{font-size:32px}.gd-sc-row i{font-size:15px}}
 .gameday>.logo{grid-column:1;grid-row:1/4;align-self:center}
 .gameday>b,.gameday>span:not(.gd-tag):not(.gd-sc):not(.logo),.gameday>small{grid-column:2}
+
+/* Conference filter chips (Scores) */
+.conf-chips{padding-bottom:6px}
+.conf-chips button{padding:6px 12px}
+.conf-ico{width:18px;height:18px;object-fit:contain;flex:none}
+html:not(.light) .conf-ico{filter:drop-shadow(0 0 1px rgba(255,255,255,.55))}

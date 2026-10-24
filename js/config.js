@@ -29,6 +29,29 @@ const COLLEGE_SPORTS = ['cfb', 'mbb', 'wbb', 'cbase', 'soft'];
 const SEC_SCHOOLS = ['Alabama', 'Arkansas', 'Auburn', 'Florida', 'Georgia', 'Kentucky', 'LSU', 'Ole Miss',
   'Mississippi State', 'Missouri', 'Oklahoma', 'South Carolina', 'Tennessee', 'Texas', 'Texas A&M', 'Vanderbilt'];
 
+// Conference filters on the Scores tab (2026-27 membership), matched by ESPN "location".
+// groups = ESPN scoreboard group IDs per sport; if one ever changes, the app falls back
+// to pulling all D-I games and filtering by the school list, so the filter keeps working.
+const CONFERENCES = {
+  sec: { name: 'SEC', logo: 8, groups: { cfb: 8, mbb: 23, wbb: 23 }, schools: SEC_SCHOOLS },
+  b10: { name: 'Big Ten', logo: 5, groups: { cfb: 5, mbb: 7, wbb: 7 }, schools: ['Illinois', 'Indiana', 'Iowa', 'Maryland',
+    'Michigan', 'Michigan State', 'Minnesota', 'Nebraska', 'Northwestern', 'Ohio State', 'Oregon', 'Penn State', 'Purdue',
+    'Rutgers', 'UCLA', 'USC', 'Washington', 'Wisconsin'] },
+  b12: { name: 'Big 12', logo: 4, groups: { cfb: 4, mbb: 8, wbb: 8 }, schools: ['Arizona', 'Arizona State', 'Baylor', 'BYU',
+    'Cincinnati', 'Colorado', 'Houston', 'Iowa State', 'Kansas', 'Kansas State', 'Oklahoma State', 'TCU', 'Texas Tech',
+    'UCF', 'Utah', 'West Virginia'] },
+  acc: { name: 'ACC', logo: 1, groups: { cfb: 1, mbb: 2, wbb: 2 }, schools: ['Boston College', 'California', 'Clemson', 'Duke',
+    'Florida State', 'Georgia Tech', 'Louisville', 'Miami', 'NC State', 'North Carolina', 'Pittsburgh', 'SMU', 'Stanford',
+    'Syracuse', 'Virginia', 'Virginia Tech', 'Wake Forest', 'Notre Dame'], noFootball: ['Notre Dame'] },
+  pac: { name: 'Pac-12', logo: 9, groups: { cfb: 9, mbb: 21, wbb: 21 }, schools: ['Boise State', 'Colorado State', 'Fresno State',
+    'Oregon State', 'San Diego State', 'Texas State', 'Utah State', 'Washington State', 'Gonzaga'], noFootball: ['Gonzaga'] },
+  aac: { name: 'American', logo: 151, groups: { cfb: 151, mbb: 62, wbb: 62 }, schools: ['Charlotte', 'East Carolina',
+    'Florida Atlantic', 'Memphis', 'North Texas', 'Rice', 'South Florida', 'Temple', 'Tulane', 'Tulsa', 'UAB', 'UTSA',
+    'Wichita State'], noFootball: ['Wichita State'], footballOnly: ['Army', 'Navy'] }
+};
+const CONF_ORDER = ['sec', 'b10', 'b12', 'acc', 'pac', 'aac'];
+const CONF_LOGO = c => `https://a.espncdn.com/i/teamlogos/ncaa_conf/500/${CONFERENCES[c].logo}.png`;
+
 // Fun names for the "pros from your school" page
 const PRO_NICK = {
   'Arkansas': 'ProHawgs', 'Oklahoma': 'Pro Sooners', 'Oklahoma State': 'Pro Pokes', 'Tulsa': 'Pro Hurricane',
