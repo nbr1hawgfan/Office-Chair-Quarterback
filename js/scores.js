@@ -75,7 +75,7 @@ function gameCardHTML(ev, lg) {
   return `<button class="game ${live ? 'live' : ''} ${isFavGame ? 'fav' : ''}" data-ev="${ev.id}" data-lg="${lg}"${wm}>
     ${row(away)}${row(home)}
     <div class="g-meta"><span class="g-status">${live ? '<i class="dot"></i>' : ''}${esc(st.state === 'pre' ? fmtDay(ev.date) + ' · ' + fmtTime(ev.date) : st.shortDetail || st.detail || '')}</span>
-      <span>${esc(extra || (st.state === 'pre' ? [tv, odds].filter(Boolean).join(' · ') : tv))}</span></div>
+      <span>${esc(extra || (st.state === 'pre' ? [tv, odds].filter(Boolean).join(' · ') : tv))}${watchChipHTML(ev)}</span></div>
   </button>`;
 }
 
@@ -182,6 +182,7 @@ function openGame(lg, eventId) {
       const pc = (d.pickcenter || [])[0]; if (pc?.details) info.push(`📈 ${pc.details}${pc.overUnder ? ' · O/U ' + pc.overUnder : ''}`);
       const ss = (d.seasonseries || [])[0]; if (ss?.summary) info.push('🔁 ' + ss.summary);
       if (info.length) html += `<div class="gc-info">${info.map(i => `<span>${esc(i)}</span>`).join('')}</div>`;
+      html += watchCardHTML({ competitions: [comp], status: comp.status, date: comp.date });
       const gclips = clipsFrom(d, { lg, ev: eventId });
       if (gclips.length) html += `<div class="card"><h4>🎬 Highlights</h4>${clipRowHTML(gclips, 'g' + eventId)}</div>`;
       if (lg === 'cfb' && gasUrl()) html += `<div id="gcSeries">${seriesHTML || ''}</div>`;

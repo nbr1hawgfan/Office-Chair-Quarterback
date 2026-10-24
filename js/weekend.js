@@ -55,7 +55,7 @@ function tvRowHTML(x, favKeys) {
   return `<button class="tv-row ${st.state === 'in' ? 'live' : ''}" data-ev="${ev.id}" data-lg="${lg}">
     <span class="tv-time">${st.state === 'in' ? '<i class="dot"></i>LIVE' : st.state === 'post' ? 'FINAL' : esc(fmtTime(ev.date))}<small>${lgIcon(lg)}</small></span>
     <span class="tv-match">${team(away)}<i class="at">@</i>${team(home)}
-      <small>${[st.state === 'in' ? st.shortDetail : '', broadcastOf(ev) ? '📺 ' + broadcastOf(ev) : '', st.state === 'pre' && odds?.details ? '📈 ' + odds.details + (odds.overUnder ? ' · O/U ' + odds.overUnder : '') : '', venue ? '📍 ' + venue : ''].filter(Boolean).map(esc).join(' &nbsp; ')}</small></span></button>`;
+      ${watchChipHTML(ev)}<small>${[st.state === 'in' ? st.shortDetail : '', broadcastOf(ev) ? '📺 ' + broadcastOf(ev) : '', st.state === 'pre' && odds?.details ? '📈 ' + odds.details + (odds.overUnder ? ' · O/U ' + odds.overUnder : '') : '', venue ? '📍 ' + venue : ''].filter(Boolean).map(esc).join(' &nbsp; ')}</small></span></button>`;
 }
 
 function openWeekend() {
