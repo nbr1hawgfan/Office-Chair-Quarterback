@@ -1,8 +1,13 @@
-/* Office Chair QB — Stat Center (NFL & NBA): league leaders, full player tables,
+/* Office Chair QB — Stat Center (NFL, college football, NBA, MLB, NHL): league leaders, full player tables,
    team stat rankings, ESPN Power Index (FPI / BPI) and the league injury report.
    All data comes from ESPN's free public stat feeds (same as the rest of the app). */
 
-const STATS_LG = ['nfl', 'nba'];
+const STATS_LG = ['nfl', 'cfb', 'nba', 'mlb', 'nhl'];
+// Leagues whose stat names are matched at run time against ESPN's own stat list
+// (each name below can be a list of possibilities; anything ESPN doesn't carry is simply hidden)
+const STAT_AUTO = ['cfb', 'mlb', 'nhl'];
+const STAT_HAS = { power: ['nfl', 'cfb', 'nba'], inj: ['nfl', 'nba', 'mlb', 'nhl'] };
+const piName = lg => lg === 'nba' ? 'BPI' : 'FPI';
 const STAT_BASE = (lg, kind) => `${WEB}${LEAGUES[lg].path}/statistics/${kind}?region=us&lang=en&contentorigin=espn&`;
 const PI_URL = lg => `https://site.web.api.espn.com/apis/fitt/v3/sports/${LEAGUES[lg].path}/powerindex?limit=100`;
 const ordinal = n => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
@@ -105,6 +110,132 @@ const TEAM_STATS = {
   }
 };
 
+/* ---------- college football, MLB, NHL ---------- */
+LEADER_CARDS.cfb = LEADER_CARDS.nfl.map(c => c.n === 'QBRating' ? { ...c, n: ['QBRating', 'passerRating', 'quarterbackRating'] } : c);
+PLAYER_TABLES.cfb = PLAYER_TABLES.nfl.filter(t => t.k !== 'kick');
+TEAM_STATS.cfb = TEAM_STATS.nfl;
+
+LEADER_CARDS.mlb = [
+  { t: 'Batting Average', c: 'batting', n: ['avg', 'battingAverage'], q: 'batting' },
+  { t: 'Home Runs', c: 'batting', n: ['homeRuns'], q: 'batting' },
+  { t: 'RBIs', c: 'batting', n: ['RBIs', 'RBI', 'runsBattedIn'], q: 'batting' },
+  { t: 'Hits', c: 'batting', n: ['hits'], q: 'batting' },
+  { t: 'Runs', c: 'batting', n: ['runs'], q: 'batting' },
+  { t: 'Stolen Bases', c: 'batting', n: ['stolenBases'], q: 'batting' },
+  { t: 'OPS', c: 'batting', n: ['OPS', 'onBasePlusSlugging'], q: 'batting' },
+  { t: 'ERA', c: 'pitching', n: ['ERA', 'earnedRunAverage'], q: 'pitching', low: true },
+  { t: 'Wins', c: 'pitching', n: ['wins'], q: 'pitching' },
+  { t: 'Strikeouts', c: 'pitching', n: ['strikeouts'], q: 'pitching' },
+  { t: 'Saves', c: 'pitching', n: ['saves'], q: 'pitching' },
+  { t: 'WHIP', c: 'pitching', n: ['WHIP', 'walksHitsPerInningPitched'], q: 'pitching', low: true }
+];
+PLAYER_TABLES.mlb = [
+  { k: 'bat', label: 'Batting', q: 'batting', sort: ['batting', ['homeRuns']], cols: [['general', 'gamesPlayed'], ['batting', 'atBats'], ['batting', 'runs'], ['batting', 'hits'],
+    ['batting', 'doubles'], ['batting', 'triples'], ['batting', 'homeRuns'], ['batting', ['RBIs', 'RBI']], ['batting', 'stolenBases'], ['batting', 'walks'], ['batting', 'strikeouts'],
+    ['batting', ['avg', 'battingAverage']], ['batting', ['onBasePct', 'onBasePercentage']], ['batting', ['slugAvg', 'sluggingPct']], ['batting', ['OPS', 'onBasePlusSlugging']]] },
+  { k: 'pitch', label: 'Pitching', q: 'pitching', sort: ['pitching', ['strikeouts']], cols: [['general', 'gamesPlayed'], ['pitching', 'gamesStarted'], ['pitching', 'wins'], ['pitching', 'losses'],
+    ['pitching', ['ERA', 'earnedRunAverage']], ['pitching', 'saves'], ['pitching', ['innings', 'inningsPitched']], ['pitching', ['hits', 'hitsAllowed']], ['pitching', 'earnedRuns'],
+    ['pitching', ['walks', 'baseOnBalls']], ['pitching', 'strikeouts'], ['pitching', ['WHIP', 'walksHitsPerInningPitched']], ['pitching', ['opponentAvg', 'opponentBattingAvg']]] }
+];
+TEAM_STATS.mlb = {
+  Batting: [
+    { t: 'Runs', c: 'batting', n: ['runs'] }, { t: 'Home Runs', c: 'batting', n: ['homeRuns'] },
+    { t: 'Batting Average', c: 'batting', n: ['avg', 'battingAverage'] }, { t: 'OPS', c: 'batting', n: ['OPS', 'onBasePlusSlugging'] },
+    { t: 'Stolen Bases', c: 'batting', n: ['stolenBases'] }, { t: 'Strikeouts (batting)', c: 'batting', n: ['strikeouts'], low: true }
+  ],
+  Pitching: [
+    { t: 'ERA', c: 'pitching', n: ['ERA', 'earnedRunAverage'], low: true }, { t: 'WHIP', c: 'pitching', n: ['WHIP', 'walksHitsPerInningPitched'], low: true },
+    { t: 'Strikeouts', c: 'pitching', n: ['strikeouts'] }, { t: 'Saves', c: 'pitching', n: ['saves'] },
+    { t: 'Opponent Avg', c: 'pitching', n: ['opponentAvg', 'opponentBattingAvg'], low: true }
+  ],
+  Fielding: [
+    { t: 'Fielding %', c: 'fielding', n: ['fieldingPct', 'fieldingPercentage'] }, { t: 'Errors', c: 'fielding', n: ['errors'], low: true }
+  ]
+};
+
+const NHL_G = ['goalKeeping', 'goaltending', 'goalie', 'defensive', 'general'];
+LEADER_CARDS.nhl = [
+  { t: 'Goals', c: ['offensive', 'scoring'], n: ['goals'] },
+  { t: 'Assists', c: ['offensive', 'scoring'], n: ['assists'] },
+  { t: 'Points', c: ['offensive', 'scoring'], n: ['points'] },
+  { t: 'Plus / Minus', c: ['general', 'defensive'], n: ['plusMinus'] },
+  { t: 'Power-Play Goals', c: ['offensive', 'scoring'], n: ['powerPlayGoals'] },
+  { t: 'Shots', c: ['offensive', 'scoring'], n: ['shotsTotal', 'shots'] },
+  { t: 'Game-Winning Goals', c: ['offensive', 'scoring'], n: ['gameWinningGoals'] },
+  { t: 'Penalty Minutes', c: ['penalties', 'general'], n: ['penaltyMinutes'] },
+  { t: 'Save %', c: NHL_G, n: ['savePct', 'savePercentage'], q: 'goaltending' },
+  { t: 'Goals Against Avg', c: NHL_G, n: ['avgGoalsAgainst', 'goalsAgainstAverage'], q: 'goaltending', low: true },
+  { t: 'Shutouts', c: NHL_G, n: ['shutouts'], q: 'goaltending' }
+];
+PLAYER_TABLES.nhl = [
+  { k: 'sk', label: 'Skaters', sort: [['offensive', 'scoring'], ['points']], cols: [['general', 'gamesPlayed'], [['offensive', 'scoring'], 'goals'], [['offensive', 'scoring'], 'assists'],
+    [['offensive', 'scoring'], 'points'], [['general', 'defensive'], 'plusMinus'], [['penalties', 'general'], 'penaltyMinutes'], [['offensive', 'scoring'], 'powerPlayGoals'],
+    [['offensive', 'scoring'], ['shotsTotal', 'shots']], [['offensive', 'scoring'], ['shootingPct', 'shootingPercentage']], [['general'], ['timeOnIcePerGame', 'avgTimeOnIce']]] },
+  { k: 'g', label: 'Goalies', q: 'goaltending', sort: [NHL_G, ['savePct', 'savePercentage']], cols: [['general', 'gamesPlayed'], [NHL_G, 'wins'], [NHL_G, 'losses'],
+    [NHL_G, ['avgGoalsAgainst', 'goalsAgainstAverage']], [NHL_G, ['savePct', 'savePercentage']], [NHL_G, 'saves'], [NHL_G, 'shutouts']] }
+];
+TEAM_STATS.nhl = {
+  Offense: [
+    { t: 'Goals / Game', c: ['offensive', 'scoring'], n: ['avgGoals', 'goalsPerGame'] }, { t: 'Power-Play %', c: ['offensive', 'scoring', 'general'], n: ['powerPlayPct', 'powerPlayPercentage'] },
+    { t: 'Shots / Game', c: ['offensive', 'scoring'], n: ['avgShots', 'shotsPerGame'] }, { t: 'Shooting %', c: ['offensive', 'scoring'], n: ['shootingPct', 'shootingPercentage'] }
+  ],
+  Defense: [
+    { t: 'Goals Against / Game', c: NHL_G, n: ['avgGoalsAgainst', 'goalsAgainstAverage'], low: true }, { t: 'Penalty Kill %', c: ['defensive', 'general', 'penalties'], n: ['penaltyKillPct', 'penaltyKillPercentage'] },
+    { t: 'Save %', c: NHL_G, n: ['savePct', 'savePercentage'] }, { t: 'Shots Against / Game', c: NHL_G, n: ['avgShotsAgainst', 'shotsAgainstPerGame'], low: true }
+  ],
+  Other: [
+    { t: 'Faceoff %', c: ['general', 'offensive'], n: ['faceoffPercent', 'faceoffWinPct', 'faceoffPercentage'] }, { t: 'Penalty Minutes', c: ['penalties', 'general'], n: ['penaltyMinutes'], low: true }
+  ]
+};
+
+/* ---------- run-time stat name matching ----------
+   c and n can each be one name or a list of possibilities; returns the names ESPN actually uses. */
+const _arr = x => Array.isArray(x) ? x : [x];
+function pickStat(defs, c, n) {
+  for (const cat of _arr(c)) {
+    const d = (defs || []).find(x => String(x.name).toLowerCase() === String(cat).toLowerCase()); if (!d) continue;
+    for (const nm of _arr(n)) { const hit = (d.names || []).find(x => String(x).toLowerCase() === String(nm).toLowerCase()); if (hit) return { c: d.name, n: hit }; }
+  }
+  return null;
+}
+const _defs = {};
+async function statDefs(lg, q) {
+  const k = lg + '|' + (q || '');
+  if (!_defs[k]) _defs[k] = (async () => {
+    const s = await statSeason(lg);
+    const p = new URLSearchParams({ limit: 1 }); if (q) p.set('category', q);
+    try { const d = await getJSON(STAT_BASE(lg, 'byathlete') + p + seasonQS(s), 3600); if ((d.categories || []).length) return d.categories; } catch (e) { }
+    if (!q) return [];
+    const d2 = await getJSON(STAT_BASE(lg, 'byathlete') + 'limit=1' + seasonQS(s), 3600); return d2.categories || [];
+  })().catch(e => { delete _defs[k]; throw e; });
+  return _defs[k];
+}
+/* Leader card with real ESPN names, or null if ESPN doesn't track it */
+async function resolveCard(lg, c) {
+  if (!STAT_AUTO.includes(lg)) return c;
+  const hit = pickStat(await statDefs(lg, c.q), c.c, c.n);
+  return hit ? { ...c, c: hit.c, n: hit.n } : null;
+}
+/* Player table with real names (unknown columns dropped) */
+async function resolveTable(lg, tbl) {
+  if (!STAT_AUTO.includes(lg)) return tbl;
+  const defs = await statDefs(lg, tbl.q);
+  const cols = tbl.cols.map(([c, n]) => pickStat(defs, c, n)).filter(Boolean).map(h => [h.c, h.n]);
+  const so = Array.isArray(tbl.sort) ? pickStat(defs, tbl.sort[0], tbl.sort[1]) : null;
+  const sort = so ? `${so.c}.${so.n}` : typeof tbl.sort === 'string' ? tbl.sort : cols[1] ? `${cols[1][0]}.${cols[1][1]}` : '';
+  return { ...tbl, cols, sort };
+}
+/* Team stat groups with real names, from the team payload's own definitions */
+function resolveTeamGroups(lg, defs) {
+  const groups = TEAM_STATS[lg]; if (!STAT_AUTO.includes(lg)) return groups;
+  const out = {};
+  Object.entries(groups).forEach(([g, list]) => {
+    const ok = list.map(st => { const h = pickStat(defs, st.c, st.n); return h ? { ...st, c: h.c, n: h.n } : null; }).filter(Boolean);
+    if (ok.length) out[g] = ok;
+  });
+  return out;
+}
+
 /* ---------- generic readers for ESPN stat payloads ---------- */
 function defIdx(defs, cat, name) {
   const d = (defs || []).find(x => String(x.name).toLowerCase() === String(cat).toLowerCase());
@@ -159,15 +290,15 @@ function seasonNote(s, lg) {
     : `<div class="st-note">${LEAGUES[lg].short} · ${esc(s.label)} regular season · updates through the latest games</div>`;
 }
 
-async function fetchAthletes(lg, { sort, q, limit = 50, page = 1 }) {
+async function fetchAthletes(lg, { sort, q, limit = 50, page = 1, asc = false }) {
   const s = await statSeason(lg);
-  const p = new URLSearchParams({ isqualified: 'true', page, limit, sort: sort + ':desc' });
+  const p = new URLSearchParams({ isqualified: 'true', page, limit, sort: sort + (asc ? ':asc' : ':desc') });
   if (q) p.set('category', q);
   return getJSON(STAT_BASE(lg, 'byathlete') + p + seasonQS(s), 600);
 }
 async function fetchTeamStats(lg) {
   const s = await statSeason(lg);
-  return getJSON(STAT_BASE(lg, 'byteam') + 'limit=40' + seasonQS(s), 600);
+  return getJSON(STAT_BASE(lg, 'byteam') + 'limit=' + (lg === 'cfb' ? 200 : 40) + seasonQS(s), 600);
 }
 async function fetchPowerIndex(lg) {
   const d = await getJSON(PI_URL(lg), 1800);
@@ -187,7 +318,8 @@ function openStats(lg, tab) {
       ctx.body.innerHTML = `<div class="st-top">${lgChipsHTML(STATS_LG, lg, 'stcLg')}</div><div id="stcBody"></div>`;
       bindChips(ctx.body, 'stcLg', k => { lg = k; LS.set('statsLg', k); tab = null; draw(); });
       const tabs = [{ k: 'leaders', label: '🏅 Leaders' }, { k: 'players', label: '📋 Player Stats' }, { k: 'teams', label: '📊 Team Ranks' },
-        { k: 'power', label: lg === 'nfl' ? '⚡ FPI' : '⚡ BPI' }, { k: 'inj', label: '🩹 Injuries' }];
+        STAT_HAS.power.includes(lg) ? { k: 'power', label: '⚡ ' + piName(lg) } : null, STAT_HAS.inj.includes(lg) ? { k: 'inj', label: '🩹 Injuries' } : null].filter(Boolean);
+      let first = tab || LS.get('statsTab', 'leaders'); if (!tabs.some(t => t.k === first)) first = 'leaders';
       const st = subTabs(qs('#stcBody', ctx.body), tabs, (k, body) => {
         LS.set('statsTab', k);
         if (k === 'leaders') return statLeaders(body, lg, (t, sort) => { tab = 'players'; LS.set('statsTable:' + lg, { t, sort }); st.pick('players'); });
@@ -195,7 +327,7 @@ function openStats(lg, tab) {
         if (k === 'teams') return statTeams(body, lg);
         if (k === 'power') return statPower(body, lg);
         if (k === 'inj') return statInjuries(body, lg);
-      }, tab || LS.get('statsTab', 'leaders'));
+      }, first);
     };
     draw();
   });
@@ -210,30 +342,38 @@ function playerRowHTML(a, rank, val, lg) {
 
 async function statLeaders(body, lg, openTable) {
   const s = await statSeason(lg);
-  const cards = LEADER_CARDS[lg];
+  const cards = LEADER_CARDS[lg], real = [];
   body.innerHTML = seasonNote(s, lg) + `<div class="st-grid">${cards.map((c, i) => `<div class="card ld-card" id="ldc${i}"><h4>${esc(c.t)}</h4><div class="ld-list">${loadingHTML('')}</div>
     <button class="ld-more" data-i="${i}">Full list ›</button></div>`).join('')}</div><p class="src">Stats: ESPN · tap a player for his card</p>`;
   body.onclick = e => {
     const a = e.target.closest('[data-ath]'); if (a) return openPlayer(lg, a.dataset.ath);
     const m = e.target.closest('.ld-more'); if (!m) return;
-    const c = cards[m.dataset.i], tbl = PLAYER_TABLES[lg].find(t => t.cols.some(([cc, n]) => cc === c.c && n === c.n)) || PLAYER_TABLES[lg][0];
+    const c = real[m.dataset.i] || cards[m.dataset.i];
+    const tbl = PLAYER_TABLES[lg].find(t => STAT_AUTO.includes(lg) ? (t.q || '') === (c.q || '') : t.cols.some(([cc, n]) => cc === c.c && n === c.n)) || PLAYER_TABLES[lg][0];
     openTable(tbl.k, `${SORT_CAT[c.c] || c.c}.${c.n}`);
   };
-  await pool(cards.map((c, i) => [c, i]), 4, async ([c, i]) => {
+  await pool(cards.map((c, i) => [c, i]), 4, async ([c0, i]) => {
     const el = qs(`#ldc${i} .ld-list`, body); if (!el) return;
+    const hide = () => el.closest('.card')?.remove();
     try {
-      const d = await fetchAthletes(lg, { sort: `${SORT_CAT[c.c] || c.c}.${c.n}`, q: c.q, limit: 5 });
-      const rows = (d.athletes || []).map(x => ({ a: x.athlete || x, st: statOf(x.athlete?.categories ? x.athlete : x, d.categories, c.c, c.n) })).filter(r => r.st && r.st.t !== '-');
+      const c = await resolveCard(lg, c0); if (!c) return hide();
+      real[i] = c;
+      const d = await fetchAthletes(lg, { sort: `${SORT_CAT[c.c] || c.c}.${c.n}`, q: c.q, limit: 5, asc: !!c.low });
+      const rows = (d.athletes || []).map(x => ({ a: x.athlete || x, st: statOf(x.athlete?.categories ? x.athlete : x, d.categories, c.c, c.n) })).filter(r => r.st && r.st.t !== '-' && r.st.t !== '');
+      if (!rows.length && STAT_AUTO.includes(lg)) return hide();
       el.innerHTML = rows.length ? rows.map((r, k) => playerRowHTML(r.a, k + 1, r.st.t, lg)).join('') : emptyHTML('No leaders yet.');
-    } catch (e) { el.innerHTML = errHTML(e); }
+    } catch (e) { if (STAT_AUTO.includes(lg)) hide(); else el.innerHTML = errHTML(e); }
   });
+  if (!qs('.ld-card', body)) qs('.st-grid', body).outerHTML = emptyHTML('No leaders posted yet this season.');
 }
 
 async function statPlayers(body, lg) {
-  const tables = PLAYER_TABLES[lg];
+  const tables = await Promise.all(PLAYER_TABLES[lg].map(t => resolveTable(lg, t).catch(() => null))).then(a => a.filter(t => t && t.cols.length));
+  if (!tables.length) { body.innerHTML = emptyHTML('Player stats aren\'t posted yet this season.'); return; }
   const saved = LS.get('statsTable:' + lg, {});
   let tbl = tables.find(t => t.k === saved.t) || tables[0];
   let sort = saved.sort || tbl.sort, page = 1, rows = [], defs = [], total = 0;
+  const lowSort = () => /ERA|WHIP|avgGoalsAgainst|goalsAgainstAverage|opponentAvg/i.test(sort);
   const s = await statSeason(lg);
   body.innerHTML = seasonNote(s, lg) + `<div class="seg small" id="ptSeg">${tables.map(t => `<button data-k="${t.k}" class="${t === tbl ? 'on' : ''}">${esc(t.label)}</button>`).join('')}</div>
     <input class="search" id="ptFind" placeholder="Filter by player or team (e.g. Chiefs, KC, Mahomes)"><div id="ptTbl">${loadingHTML()}</div>`;
@@ -252,7 +392,7 @@ async function statPlayers(body, lg) {
   };
   const load = async (reset) => {
     if (reset) { page = 1; rows = []; out.innerHTML = loadingHTML(); }
-    const d = await fetchAthletes(lg, { sort, q: tbl.q, limit: 50, page });
+    const d = await fetchAthletes(lg, { sort, q: tbl.q, limit: 50, page, asc: lowSort() });
     defs = d.categories || defs; total = d.pagination?.count || 0;
     (d.athletes || []).forEach(x => rows.push({ a: x.athlete || x, src: x.athlete?.categories ? x.athlete : x, rk: rows.length + 1 }));
     render();
@@ -284,9 +424,10 @@ const rankClass = (rk, n) => rk <= Math.ceil(n / 4) ? 'good' : rk > n - Math.cei
 
 async function statTeams(body, lg) {
   const [s, d] = await Promise.all([statSeason(lg), fetchTeamStats(lg)]);
-  const groups = TEAM_STATS[lg];
+  const groups = resolveTeamGroups(lg, d.categories);
+  if (!Object.keys(groups).length) { body.innerHTML = seasonNote(s, lg) + emptyHTML('Team stats aren\'t posted yet this season.'); return; }
   let g = LS.get('teamStatG:' + lg, 'Offense'), i = LS.get('teamStatI:' + lg, 0);
-  if (!groups[g]) g = 'Offense'; if (!groups[g][i]) i = 0;
+  if (!groups[g]) g = Object.keys(groups)[0]; if (!groups[g][i]) i = 0;
   const draw = () => {
     const st = groups[g][i], list = rankTeams(d, st);
     const vals = list.map(x => x.s.v), mx = Math.max(...vals), mn = Math.min(...vals, 0);
@@ -319,11 +460,11 @@ function piVal(e, d, col) { if (!col) return ''; const v = statOf(e, d.categorie
 
 async function statPower(body, lg) {
   const d = await fetchPowerIndex(lg);
-  const cols = piCols(d), nm = lg === 'nfl' ? 'FPI' : 'BPI';
+  const cols = piCols(d), nm = piName(lg);
   const list = (d.teams || []).map(e => ({ e, r: statOf(e, d.categories, cols.rating?.c, cols.rating?.n) })).filter(x => x.r).sort((a, b) => b.r.v - a.r.v);
-  const head = [['Team'], [nm, cols.rating], ['Off', cols.off], ['Def', cols.def], ['Rec'], ['Proj', 'proj'], ['Playoffs', cols.po], ['Win Div', cols.div], [lg === 'nfl' ? 'Win SB' : 'Win Title', cols.title]].filter(h => h.length === 1 || h[1]);
+  const head = [['Team'], [nm, cols.rating], ['Off', cols.off], ['Def', cols.def], ['Rec'], ['Proj', 'proj'], ['Playoffs', cols.po], ['Win Div', cols.div], [lg === 'nfl' ? 'Win SB' : lg === 'cfb' ? 'Win Natl' : 'Win Title', cols.title]].filter(h => h.length === 1 || h[1]);
   const sea = d.requestedSeason?.displayName || '';
-  body.innerHTML = `<div class="st-note">ESPN ${lg === 'nfl' ? 'Football' : 'Basketball'} Power Index${sea ? ' · ' + esc(sea) : ''}. The rating is how many points better than an average team on a neutral field; the odds come from 10,000 season simulations.</div>
+  body.innerHTML = `<div class="st-note">ESPN ${lg === 'nba' ? 'Basketball' : 'Football'} Power Index${sea ? ' · ' + esc(sea) : ''}. The rating is how many points better than an average team on a neutral field; the odds come from 10,000 season simulations.</div>
     <div class="tbl-wrap st-tbl"><table class="stats wide pi"><tr><th>#</th>${head.map(h => `<th class="${h[0] === 'Team' ? 'pl' : ''}">${h[0]}</th>`).join('')}</tr>
     ${list.map((x, k) => { const t = x.e.team || {};
       return `<tr class="${Prefs.isFav(lg, t.id) ? 'favrow' : ''}" data-team="${t.id}"><td>${k + 1}</td>${head.map(h => {
@@ -375,7 +516,7 @@ async function statInjuries(body, lg) {
 /* ---------- Team page tab: where this team ranks + power index + injuries ---------- */
 async function teamRanks(body, lg, t) {
   const [s, d] = await Promise.all([statSeason(lg), fetchTeamStats(lg)]);
-  const groups = TEAM_STATS[lg];
+  const groups = resolveTeamGroups(lg, d.categories);
   let html = seasonNote(s, lg);
   Object.entries(groups).forEach(([g, list]) => {
     html += `<h3 class="sec-h">${g}</h3><div class="rank-tiles">${list.map(st => {
@@ -388,10 +529,10 @@ async function teamRanks(body, lg, t) {
   body.innerHTML = html;
   qs('#trOpen', body).onclick = () => openStats(lg, 'leaders');
   // power index card
-  fetchPowerIndex(lg).then(pd => {
+  (STAT_HAS.power.includes(lg) ? fetchPowerIndex(lg) : Promise.reject()).then(pd => {
     const el = qs('#trPower', body); if (!el) return;
     const e = (pd.teams || []).find(x => String(x.team?.id) === String(t.id)); if (!e) return;
-    const c = piCols(pd), nm = lg === 'nfl' ? 'FPI' : 'BPI';
+    const c = piCols(pd), nm = piName(lg);
     const ranked = (pd.teams || []).map(x => statOf(x, pd.categories, c.rating?.c, c.rating?.n)?.v).filter(v => v != null).sort((a, b) => b - a);
     const mine = statOf(e, pd.categories, c.rating?.c, c.rating?.n);
     const rk = mine ? ranked.indexOf(mine.v) + 1 : 0;
@@ -402,7 +543,7 @@ async function teamRanks(body, lg, t) {
       ${stat('Make playoffs', c.po)}${stat('Win division', c.div)}${stat(lg === 'nfl' ? 'Win Super Bowl' : 'Win title', c.title)}</div></div>`;
   }).catch(() => { });
   // injuries card
-  fetchInjuries(lg).then(id => {
+  (STAT_HAS.inj.includes(lg) ? fetchInjuries(lg) : Promise.reject()).then(id => {
     const el = qs('#trInj', body); if (!el) return;
     const mine = (id.injuries || []).find(x => String(x.id) === String(t.id));
     const rows = (mine?.injuries || []).sort((a, b) => INJ_ORDER.indexOf(a.status) - INJ_ORDER.indexOf(b.status));

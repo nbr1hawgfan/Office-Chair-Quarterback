@@ -737,3 +737,102 @@ html.light .stats.wide th.pl,html.light .stats.wide td.pl{background:var(--card)
 .conf-chips button{padding:6px 12px}
 .conf-ico{width:18px;height:18px;object-fit:contain;flex:none}
 html:not(.light) .conf-ico{filter:drop-shadow(0 0 1px rgba(255,255,255,.55))}
+
+/* ===== Shared bits for the postseason / pools / weekend screens ===== */
+.mut{color:var(--mut)}
+.sv-rules{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--a);border-radius:var(--r);padding:12px 14px;font-size:13px;line-height:1.5;margin:4px 0 10px}
+.sv-rules.small{font-size:12px;padding:9px 12px}
+.sv-lock{padding:10px 12px;border-radius:12px;background:var(--bg2);font-size:13px;margin:6px 0 10px;color:var(--mut)}
+.sv-lock.on{color:var(--txt);box-shadow:inset 0 0 0 1px var(--a)}
+.sv-lock b{color:var(--txt)}
+.sv-win{padding:14px;border-radius:var(--r);text-align:center;font-weight:800;font-size:16px;margin:8px 0 12px;background:linear-gradient(120deg,rgba(var(--p-rgb),.45),var(--card));border:1px solid var(--a);display:flex;align-items:center;justify-content:center;gap:8px}
+.sv-out{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;padding:26px 16px;background:var(--card);border-radius:var(--r);border:1px solid var(--line)}
+.sv-out span{font-size:44px}.sv-out b{font-size:20px}
+.pk-team.used{opacity:.38;filter:grayscale(1)}
+.pk-team small{display:block;font-weight:500;font-size:10px;color:var(--mut)}
+.sv-hist{display:flex;flex-wrap:wrap;gap:6px}
+.sv-hist span{display:flex;flex-direction:column;align-items:center;padding:6px 10px;border-radius:10px;background:var(--bg2);min-width:52px}
+.sv-hist small{font-size:10px}
+.sv-board{display:flex;flex-direction:column;gap:8px}
+.sv-row{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:var(--r);background:var(--card);border:1px solid var(--line)}
+.sv-row.me{border-color:var(--a)}
+.sv-row.dead{opacity:.6}
+.sv-nm{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.sv-picks{display:flex;flex-wrap:wrap;gap:4px}
+.sv-p{font-style:normal;font-size:11px;font-weight:700;padding:3px 7px;border-radius:8px;background:var(--bg2);display:flex;gap:4px;align-items:center}
+.sv-p small{font-size:9px;opacity:.7}
+.sv-p.w{background:rgba(61,220,132,.18);color:var(--win)}
+.sv-p.l{background:rgba(255,93,93,.18);color:var(--loss);text-decoration:line-through}
+.sv-p.lv{box-shadow:inset 0 0 0 1px var(--live)}
+
+/* brackets (CFP, projected) */
+.bk-wrap{overflow-x:auto;margin:0 -4px;padding:0 4px 8px;scrollbar-width:thin}
+.bk{display:grid;grid-template-columns:repeat(4,minmax(190px,1fr));gap:12px;min-width:800px}
+.bk-col{display:flex;flex-direction:column;justify-content:space-around;gap:10px}
+.bk-col h5{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--mut);text-align:center;margin-bottom:2px}
+.bk-game{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:7px 9px}
+.bk-game.live{border-color:var(--live)}
+.bk-game.tbd{text-align:center;opacity:.7}
+.bk-lbl{display:block;font-size:10px;color:var(--mut);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bk-st{display:block;font-size:10px;color:var(--mut);margin-top:3px}
+.bk-tm{display:flex;align-items:center;gap:6px;padding:3px 0;font-size:13px}
+.bk-tm span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.bk-tm b{font-weight:800}
+.bk-tm.win span,.bk-tm.win b{color:var(--accent)}
+.bk-tm.lose{opacity:.55}
+.bk-seed{font-style:normal;font-size:10px;color:var(--mut);margin-right:5px;font-weight:700}
+.bowl{display:flex;flex-direction:column;gap:4px}
+.bowl-nm{font-size:11px;font-weight:700;color:var(--accent);padding-left:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* College World Series + bracket challenge hero */
+.cws-hero{display:flex;gap:14px;align-items:center;padding:16px;border-radius:var(--r);margin:6px 0 12px;background:linear-gradient(120deg,rgba(var(--p-rgb),.5),var(--card) 70%);border:1px solid var(--line)}
+.cws-hero>span{font-size:40px}
+.cws-hero b{display:block;font-size:17px}
+.cws-hero small{display:block;margin-top:3px}
+.mm-reg{margin:6px 0}
+.mm-reg>small{display:block;font-weight:700;text-transform:uppercase;letter-spacing:1px;font-size:10px}
+.mm-pick{display:flex;align-items:center;gap:8px;padding:8px 0}
+
+/* conference race */
+.race td{vertical-align:middle}
+.race tr.dim{opacity:.5}
+.race tr.cut td{border-bottom:2px dashed var(--a)}
+.ra-next{display:block;font-size:10px;color:var(--mut);font-weight:500}
+.ra-pill{font-style:normal;font-size:11px;font-weight:700;white-space:nowrap}
+.ra-pill.in{color:var(--win)}.ra-pill.out{color:var(--loss)}
+.ra-l5{display:flex;gap:2px;margin-top:3px}
+.ra-l5 i{font-style:normal;font-size:9px;font-weight:800;width:14px;height:14px;line-height:14px;text-align:center;border-radius:3px}
+.ra-l5 i.w{background:rgba(61,220,132,.2);color:var(--win)}.ra-l5 i.l{background:rgba(255,93,93,.2);color:var(--loss)}
+
+/* my weekend TV guide */
+.tv-list{display:flex;flex-direction:column;gap:8px}
+.tv-row{display:flex;gap:12px;align-items:center;width:100%;text-align:left;padding:10px 12px;border-radius:var(--r);background:var(--card);border:1px solid var(--line)}
+.tv-row.live{border-color:var(--live)}
+.tv-time{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:62px;font-weight:800;font-size:13px}
+.tv-time .lg-ico{width:18px;height:18px}
+.tv-match{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
+.tv-match>small{flex-basis:100%;font-size:11px;line-height:1.5}
+.tv-tm{display:flex;align-items:center;gap:5px;font-size:14px}
+.tv-tm.fav b{color:var(--accent)}
+.tv-tm em{font-style:normal;font-weight:800;margin-left:2px}
+.tv-tm.win em{color:var(--win)}
+.tv-match .at{font-style:normal;color:var(--mut);font-size:12px}
+
+/* award watch */
+.aw-list{display:flex;flex-direction:column;gap:8px}
+.aw-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--r);background:var(--card);border:1px solid var(--line)}
+.aw-row.fav{border-color:var(--a)}
+.aw-rk{width:22px;text-align:center;font-size:16px;color:var(--accent)}
+.aw-main{flex:1;min-width:0;display:flex;gap:10px;align-items:center;text-align:left}
+.aw-main>span{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.aw-main small{display:flex;align-items:center;gap:4px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.aw-main .bar{display:block;height:5px;border-radius:3px;background:var(--bg2);margin-top:4px;overflow:hidden}
+.aw-main .bar span{display:block;height:100%;background:var(--accent);border-radius:3px}
+.aw-vote{display:flex;flex-direction:column;align-items:center;padding:6px 8px;border-radius:10px;background:var(--bg2);font-size:18px;min-width:44px}
+.aw-vote small{font-size:10px;font-weight:800;color:var(--txt);min-height:12px}
+.aw-vote.on{background:rgba(var(--p-rgb),.35);box-shadow:inset 0 0 0 2px var(--a)}
+.aw-tally{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;padding:7px 0;border-bottom:1px solid var(--line)}
+.aw-tally span{margin-left:auto;font-weight:800;color:var(--accent)}
+.aw-voters{flex-basis:100%;font-size:11px}
+.aw-news{display:block;padding:8px 0;border-bottom:1px solid var(--line);color:var(--txt);text-decoration:none}
+.aw-news small{display:block;font-size:11px}

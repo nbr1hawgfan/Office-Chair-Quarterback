@@ -19,6 +19,7 @@ const PATHS = {
   nfl: 'football/nfl', cfb: 'football/college-football', nba: 'basketball/nba', wnba: 'basketball/wnba',
   mlb: 'baseball/mlb', nhl: 'hockey/nhl', mbb: 'basketball/mens-college-basketball'
 };
+const EV_VER = 'ev2:'; // cache key version (adds team ids)
 const PRO_LEAGUES = ['nfl', 'nba', 'mlb', 'nhl', 'wnba'];
 const SHEETS = {
   Players: ['Name', 'PinHash', 'Joined'],
@@ -32,7 +33,10 @@ const SHEETS = {
   Activity: ['Time', 'Fan Name', 'Real Name', 'Team', 'Device'],
   HistoryCache: ['Key', 'Fetched', 'Json1', 'Json2', 'Json3', 'Json4', 'Json5', 'Json6'],
   Brief: ['Email', 'Name', 'Teams', 'Theme', 'Hour', 'Days', 'Fantasy', 'Token', 'Active', 'LastSent', 'Created'],
-  Settings: ['Fan Name', 'Json', 'UpdatedMs', 'Saved', 'Device']
+  Settings: ['Fan Name', 'Json', 'UpdatedMs', 'Saved', 'Device'],
+  Survivor: ['Season', 'Week', 'Name', 'EventId', 'TeamId', 'Team', 'Updated'],
+  Bracket: ['Season', 'Name', 'Kind', 'Key', 'TeamId', 'Team', 'Round', 'Updated'],
+  Votes: ['Award', 'Season', 'Name', 'AthleteId', 'Athlete', 'Team', 'Updated']
 };
 
 /* ---------------- entry points ---------------- */
@@ -56,6 +60,11 @@ function doGet(e) {
       case 'thisday': return out(thisDay(p.team, p.md));
       case 'h2h': return out(headToHead(p.team1, p.team2));
       case 'draft': return out(draftHistory(p.team));
+      case 'survMine': checkUser(p.code, p.name, p.pin); return out({ picks: survMine(p.name, p.season) });
+      case 'survBoard': checkCode(p.code); return out(survBoard(p.season, Number(p.week) || 0, p.name));
+      case 'bracketMine': checkUser(p.code, p.name, p.pin); return out({ picks: bracketMine(p.name, p.season) });
+      case 'bracketBoard': checkCode(p.code); return out(bracketBoard(p));
+      case 'votes': checkCode(p.code); return out(getVotes(p.award, p.season, p.name));
       default: return out({ error: 'Unknown action' });
     }
   } catch (err) { return out({ error: String(err.message || err) }); }
@@ -75,6 +84,9 @@ function doPost(e) {
     if (b.action === 'briefSave') return out(briefSave(b));
     if (b.action === 'briefTest') return out(briefTest(b));
     if (b.action === 'briefStop') return out(briefStop(b));
+    if (b.action === 'survPick') return out(survPick(b));
+    if (b.action === 'bracketSave') return out(bracketSave(b));
+    if (b.action === 'vote') return out(castVote(b));
     return out({ error: 'Unknown action' });
   } catch (err) { return out({ error: String(err.message || err) }); }
 }
@@ -313,7 +325,7 @@ function join(code, name, pin) {
 /* Game status from ESPN summary, cached briefly; finals are stored in Results */
 function eventStatuses(league, ids) {
   const cache = CacheService.getScriptCache(), out = {}, need = [];
-  ids.forEach(id => { const c = cache.get('ev:' + id); if (c) out[id] = JSON.parse(c); else need.push(id); });
+  ids.forEach(id => { const c = cache.get(EV_VER + id); if (c) out[id] = JSON.parse(c); else need.push(id); });
   for (let i = 0; i < need.length; i += 30) {
     const chunk = need.slice(i, i + 30);
     const resps = espnFetchAll(chunk.map(id => SITE + PATHS[league] + '/summary?event=' + id));
@@ -324,9 +336,9 @@ function eventStatuses(league, ids) {
         const comp = ((d.header || {}).competitions || [])[0] || {};
         const state = ((comp.status || {}).type || {}).state || 'pre';
         const w = (comp.competitors || []).find(c => c.winner === true);
-        const info = { state: state, winner: w ? String(w.id || (w.team || {}).id) : '' };
+        const info = { state: state, winner: w ? String(w.id || (w.team || {}).id) : '', teams: (comp.competitors || []).map(c => String(c.id || (c.team || {}).id)), date: comp.date || '' };
         out[id] = info;
-        cache.put('ev:' + id, JSON.stringify(info), state === 'post' ? 21600 : state === 'in' ? 60 : 120);
+        cache.put(EV_VER + id, JSON.stringify(info), state === 'post' ? 21600 : state === 'in' ? 60 : 120);
       } catch (e) { out[id] = { state: 'unknown', winner: '' }; }
     });
   }
@@ -807,4 +819,174 @@ function loadSettings(b) {
   const name = checkUser(b.code, b.name, b.pin);
   const hit = settingsRow(name);
   return hit ? { data: safeJSON(hit.r[1]), updated: Number(hit.r[2]) || 0 } : { data: null, updated: 0 };
+}
+
+
+/* ================= NFL SURVIVOR POOL =================
+   One team a week, never the same team twice. A loss (or tie) knocks you out. Missing a week counts as a loss.
+   If everyone still alive loses the same week, they all survive. Picks lock at that game's kickoff.
+   You can join until the week after the pool's first week. */
+function survRows(season) { return rows('Survivor').filter(r => String(r[0]) === String(season)); }
+function survMine(name, season) {
+  return survRows(season).filter(r => norm(r[2]) === norm(name)).map(r => ({ week: Number(r[1]), eventId: String(r[3]), teamId: String(r[4]), team: r[5] }));
+}
+function survPick(b) {
+  const name = checkUser(b.code, b.name, b.pin);
+  const season = String(b.season), week = Number(b.week);
+  if (!season || !(week >= 1 && week <= 18)) throw new Error('Survivor runs NFL regular-season weeks 1–18');
+  const st = eventStatuses('nfl', [String(b.eventId)])[String(b.eventId)] || {};
+  if (st.state !== 'pre') throw new Error('That game already kicked off');
+  if (st.teams && st.teams.length && st.teams.indexOf(String(b.teamId)) < 0) throw new Error('That team isn\'t in that game');
+  const lock = LockService.getScriptLock(); lock.waitLock(15000);
+  try {
+    const all = survRows(season), mine = all.filter(r => norm(r[2]) === norm(name));
+    const start = all.length ? Math.min.apply(null, all.map(r => Number(r[1]))) : week;
+    if (!mine.length && week > start + 1) throw new Error('This pool started in week ' + start + ' — sign-ups are closed. Catch the next one!');
+    if (mine.some(r => String(r[4]) === String(b.teamId) && Number(r[1]) !== week)) throw new Error('You already used ' + (b.team || 'that team') + ' this season');
+    const board = survBoard(season, week, name);
+    const me = board.rows.find(r => norm(r.name) === norm(name));
+    if (me && !me.alive) throw new Error('You\'re out of the pool — better luck next season');
+    const s = sh('Survivor'), data = s.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][0]) === season && Number(data[i][1]) === week && norm(data[i][2]) === norm(name)) {
+        const old = eventStatuses('nfl', [String(data[i][3])])[String(data[i][3])] || {};
+        if (old.state && old.state !== 'pre') throw new Error('Your week ' + week + ' pick is already locked');
+        s.getRange(i + 1, 1, 1, 7).setValues([[season, week, name, String(b.eventId), String(b.teamId), b.team || '', new Date()]]);
+        return { ok: true, week: week, team: b.team };
+      }
+    }
+    s.appendRow([season, week, name, String(b.eventId), String(b.teamId), b.team || '', new Date()]);
+    return { ok: true, week: week, team: b.team };
+  } finally { lock.releaseLock(); }
+}
+function survBoard(season, curWeek, viewer) {
+  const all = survRows(season);
+  if (!all.length) return { rows: [], start: 0, week: curWeek };
+  const st = eventStatuses('nfl', [...new Set(all.map(r => String(r[3])))]);
+  const start = Math.min.apply(null, all.map(r => Number(r[1])));
+  const last = Math.max(curWeek || 0, Math.max.apply(null, all.map(r => Number(r[1]))));
+  const people = {};
+  all.forEach(r => {
+    const k = norm(r[2]), p = people[k] || (people[k] = { name: r[2], picks: {}, first: 99, alive: true, outWeek: 0, wins: 0 });
+    p.picks[Number(r[1])] = { eventId: String(r[3]), teamId: String(r[4]), team: r[5] };
+    p.first = Math.min(p.first, Number(r[1]));
+  });
+  const list = Object.values(people);
+  for (let w = start; w <= last; w++) {
+    const alive = list.filter(p => p.alive && p.first <= w);
+    const res = alive.map(p => {
+      const pk = p.picks[w];
+      if (!pk) return w < curWeek ? 'L' : 'P';
+      const e = st[pk.eventId] || {};
+      if (e.state !== 'post') return 'P';
+      return e.winner && e.winner === pk.teamId ? 'W' : 'L';
+    });
+    const everyoneLost = alive.length > 0 && res.every(x => x === 'L');
+    alive.forEach((p, i) => {
+      if (res[i] === 'W') p.wins++;
+      if (res[i] === 'L' && !everyoneLost) { p.alive = false; p.outWeek = w; }
+    });
+  }
+  const outRows = list.map(p => ({
+    name: p.name, alive: p.alive, outWeek: p.outWeek, wins: p.wins,
+    picks: Object.keys(p.picks).map(Number).sort((a, b) => a - b).map(w => {
+      const pk = p.picks[w], e = st[pk.eventId] || {};
+      const hidden = e.state === 'pre' && norm(p.name) !== norm(viewer || '');
+      return { week: w, team: hidden ? '' : pk.team, teamId: hidden ? '' : pk.teamId, result: e.state === 'post' ? (e.winner === pk.teamId ? 'W' : 'L') : e.state === 'in' ? 'live' : 'pre', hidden: hidden };
+    })
+  })).sort((a, b) => (b.alive - a.alive) || (b.outWeek - a.outWeek) || (b.wins - a.wins) || a.name.localeCompare(b.name));
+  return { rows: outRows, start: start, week: curWeek, aliveCount: outRows.filter(r => r.alive).length };
+}
+
+/* ================= MARCH MADNESS BRACKET CHALLENGE =================
+   Round-by-round: pick every game as each round's matchups are set. Points double each round
+   (1, 2, 4, 8, 16, 32). Before the first round tips: pick a champion (+25) and one Final Four team per region (+5 each). */
+const MM_PTS = { r64: 1, r32: 2, s16: 4, e8: 8, f4: 16, ncg: 32 };
+const MM_CHAMP = 25, MM_F4 = 5;
+function bracketRows(season) { return rows('Bracket').filter(r => String(r[0]) === String(season)); }
+function bracketMine(name, season) {
+  const o = {};
+  bracketRows(season).filter(r => norm(r[1]) === norm(name)).forEach(r => { o[r[2] + ':' + r[3]] = { teamId: String(r[4]), team: r[5], round: r[6] }; });
+  return o;
+}
+function bracketSave(b) {
+  const name = checkUser(b.code, b.name, b.pin);
+  const season = String(b.season || ''); if (!season) throw new Error('No tournament season');
+  const picks = (b.picks || []).slice(0, 80);
+  const gameIds = picks.filter(p => p.kind === 'game').map(p => String(p.key));
+  const st = eventStatuses('mbb', gameIds.concat((b.r64 || []).slice(0, 36).map(String)));
+  // Champion / Final Four picks lock once any first-round game has tipped
+  const locked = (b.r64 || []).some(id => st[String(id)] && st[String(id)].state !== 'pre');
+  const ok = [], rejected = [];
+  picks.forEach(p => {
+    if (p.kind === 'game') (st[String(p.key)] && st[String(p.key)].state === 'pre' && MM_PTS[p.round] ? ok : rejected).push(p);
+    else if ((p.kind === 'champ' || p.kind === 'f4') && !locked) ok.push(p); else rejected.push(p);
+  });
+  const lock = LockService.getScriptLock(); lock.waitLock(15000);
+  try {
+    const s = sh('Bracket'), data = s.getDataRange().getValues(), idx = {};
+    for (let i = 1; i < data.length; i++) if (String(data[i][0]) === season && norm(data[i][1]) === norm(name)) idx[data[i][2] + ':' + data[i][3]] = i + 1;
+    const now = new Date(), appends = [];
+    ok.forEach(p => {
+      const row = [season, name, p.kind, String(p.key), String(p.teamId), p.team || '', p.round || '', now];
+      const k = p.kind + ':' + String(p.key);
+      if (idx[k]) s.getRange(idx[k], 1, 1, 8).setValues([row]); else appends.push(row);
+    });
+    if (appends.length) s.getRange(s.getLastRow() + 1, 1, appends.length, 8).setValues(appends);
+  } finally { lock.releaseLock(); }
+  return { saved: ok.length, rejected: rejected.length, locked: locked };
+}
+/* p.e8 = "East:123,West:456,..."  p.ncg = championship event id  p.r64 = one first-round event id (for reveal) */
+function bracketBoard(p) {
+  const season = String(p.season || ''), all = bracketRows(season);
+  const e8 = String(p.e8 || '').split(',').filter(Boolean).map(x => x.split(':'));
+  const games = all.filter(r => r[2] === 'game').map(r => String(r[3]));
+  const extra = e8.map(x => x[1]).concat(p.ncg ? [String(p.ncg)] : [], p.r64 ? [String(p.r64)] : []);
+  const st = eventStatuses('mbb', [...new Set(games.concat(extra))]);
+  const reveal = p.r64 && st[String(p.r64)] && st[String(p.r64)].state !== 'pre';
+  const champ = p.ncg && st[String(p.ncg)] && st[String(p.ncg)].state === 'post' ? st[String(p.ncg)].winner : '';
+  const f4w = {}; e8.forEach(([reg, id]) => { const e = st[id]; if (e && e.state === 'post') f4w[reg] = e.winner; });
+  const people = {};
+  all.forEach(r => {
+    const k = norm(r[1]), x = people[k] || (people[k] = { name: r[1], pts: 0, right: 0, graded: 0, champ: '', f4: [] });
+    if (r[2] === 'game') {
+      const e = st[String(r[3])]; if (!e || e.state !== 'post') return;
+      x.graded++; if (e.winner === String(r[4])) { x.right++; x.pts += MM_PTS[r[6]] || 0; }
+    } else if (r[2] === 'champ') {
+      x.champ = reveal || norm(r[1]) === norm(p.name || '') ? r[5] : '🔒';
+      if (champ && champ === String(r[4])) x.pts += MM_CHAMP;
+    } else if (r[2] === 'f4') {
+      x.f4.push(reveal ? r[5] : '🔒');
+      if (f4w[r[3]] && f4w[r[3]] === String(r[4])) x.pts += MM_F4;
+    }
+  });
+  const list = Object.values(people).sort((a, b) => b.pts - a.pts || b.right - a.right || a.name.localeCompare(b.name));
+  return { rows: list, updated: new Date().toISOString() };
+}
+
+/* ================= AWARD WATCH OFFICE VOTE ================= */
+function getVotes(award, season, viewer) {
+  const v = rows('Votes').filter(r => r[0] === award && String(r[1]) === String(season));
+  const tally = {}; let mine = '';
+  v.forEach(r => {
+    const t = tally[r[3]] || (tally[r[3]] = { athleteId: String(r[3]), athlete: r[4], team: r[5], n: 0, voters: [] });
+    t.n++; t.voters.push(r[2]);
+    if (viewer && norm(r[2]) === norm(viewer)) mine = String(r[3]);
+  });
+  return { tally: Object.values(tally).sort((a, b) => b.n - a.n), mine: mine, total: v.length };
+}
+function castVote(b) {
+  const name = checkUser(b.code, b.name, b.pin);
+  const award = String(b.award || '').slice(0, 20), season = String(b.season || '');
+  if (!award || !season || !b.athleteId) throw new Error('Missing vote');
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    const s = sh('Votes'), data = s.getDataRange().getValues();
+    const row = [award, season, name, String(b.athleteId), String(b.athlete || '').slice(0, 60), String(b.team || '').slice(0, 10), new Date()];
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === award && String(data[i][1]) === season && norm(data[i][2]) === norm(name)) { s.getRange(i + 1, 1, 1, 7).setValues([row]); return getVotes(award, season, name); }
+    }
+    s.appendRow(row);
+  } finally { lock.releaseLock(); }
+  return getVotes(award, season, name);
 }

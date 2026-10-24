@@ -116,7 +116,14 @@ function homeTilesHTML(p) {
     ['pickem', '🏆', "Pick'em", pk ? 'Make picks' : 'Join league', 'hot'],
     ['rival', '⚔️', 'Office Rivalry', 'Board · trash talk', 'hot'],
     ['clips', '🎬', 'Highlights', 'Swipe through clips', 'hot'],
-    ['stats', '📈', 'Stat Center', 'NFL & NBA leaders', 'hot'],
+    ['weekend', '📺', 'My Weekend', 'Your games + TV', 'hot'],
+    ['stats', '📈', 'Stat Center', 'NFL · CFB · NBA · MLB · NHL', 'hot'],
+    ['race', '🏁', 'Conference Race', "Who's still alive", 'hot'],
+    ['awards', '🏆', 'Award Watch', 'Heisman · MVPs · office vote', 'hot'],
+    ['surv', '💀', 'Survivor', 'NFL · last one standing', 'hot'],
+    ['cfp', '🏟️', 'CFP & Bowls', 'Bracket · bowls', 'hot'],
+    ['mm', '🏀', 'Bracket Challenge', 'March Madness', 'hot'],
+    ['cws', '🥎', 'Road to OKC', 'WCWS · MCWS', 'hot'],
     cf ? ['pros', cf.logo, PRO_NICK[cf.loc] || 'Pros', cf.loc + ' in the pros', 'logo'] : null,
     cfb ? ['recruit', cfb.logo, 'Recruiting', cfb.loc + ' commits', 'logo'] : null,
     ['myteam', p.theme?.logo || '⭐', 'My Team', p.theme ? p.theme.ab || p.theme.dn : 'Pick a team', p.theme ? 'logo' : ''],
@@ -127,6 +134,12 @@ function homeTilesHTML(p) {
     ['trivia', '🧠', 'Trivia', 'Best: ' + LS.get('triviaBest', 0) + '/10'],
     ['teams', '🎨', 'Teams & Colors', 'Follow · theme']
   ].filter(Boolean);
+  // seasonal tiles jump to the front when they're in season; out-of-season ones drop the 'hot' glow and slide to the end
+  const m = new Date().getMonth(), inSeason = { surv: m >= 8 || m === 0, cfp: m >= 10 || m === 0, mm: m === 2 || m === 3, cws: m === 4 || m === 5, race: m >= 9 || m <= 2 };
+  const seasonal = tiles.filter(t => t[0] in inSeason);
+  seasonal.forEach(t => { if (!inSeason[t[0]]) t[4] = ''; });
+  const order = [...tiles.slice(0, 2), ...seasonal.filter(t => inSeason[t[0]]), ...tiles.slice(2).filter(t => !(t[0] in inSeason)), ...seasonal.filter(t => !inSeason[t[0]])];
+  tiles.splice(0, tiles.length, ...order);
   return `<div class="tiles">${tiles.map(([k, ic, l, sub, kind]) => `<button class="tile ${kind || ''}" data-go="${k}">
     <span class="tile-ico">${kind === 'logo' ? img(ic, 'tile-logo') : ic}</span><b>${esc(l)}</b><small>${esc(sub)}</small></button>`).join('')}</div>`;
 }
@@ -135,6 +148,7 @@ function runTile(k, p) {
   const map = {
     rival: () => openRivalry(), stats: () => openStats(), clips: () => openClipFeed(), brief: openBrief, ffl: openFantasy, pickem: openPickem, stand: openStandings, rank: openRankings, news: openNews, trivia: openTrivia,
     teams: () => openTeamPicker(), settings: openSettings,
+    weekend: openWeekend, surv: openSurvivor, cfp: openCFP, mm: openBracket, race: () => openRace(), awards: () => openAwards(), cws: () => openCWS(),
     scores: () => App.go('scores'), players: () => App.go('players'), myteam: () => App.go('team'),
     pros: () => cf && openTeam(cf.lg, cf.id, 'pros'), recruit: () => cfb && openTeam('cfb', cfb.id, 'recruit')
   };

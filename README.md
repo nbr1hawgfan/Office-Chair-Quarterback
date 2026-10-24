@@ -12,6 +12,15 @@ Sports-only PWA for the office. Dark, mobile-first, static files on GitHub Pages
 - **Players** — search any pro or college player, see bio, season/career splits, career by season, recent game log, news, plus **trading card links** (eBay for sale, sold prices, rookies, PSA 10, TCDB checklist, COMC).
 - **Office Pick'em** — weekly NFL + college board (Top 25, every SEC game, plus Tulsa, Nebraska, Oklahoma State), PIN-protected, locks at kickoff, leaderboard, and office pick tallies once a game starts.
 - **Polls**, **Standings** (SEC first), **News** feed for your teams, **Break Room Trivia**.
+- **My Weekend** 📺 — your teams' games from today through Monday night with time, TV, spread and venue, plus ranked college matchups and NFL prime time. One tap adds your games to your phone's calendar (.ics).
+- **Stat Center** — NFL, **college football, MLB and NHL** now join the NBA: leaders, sortable player tables, team ranks, FPI (NFL/CFB), BPI (NBA), injuries (pros).
+- **Conference Race** 🏁 — SEC, Big Ten, Big 12, ACC, Pac-12, American for football and hoops: conference record, games back, conference games left, next game, last 5, and ✅ clinched / 🟢 alive / ❌ out (top 2 for football title games). Built from each team's schedule.
+- **Award Watch** 🏆 — Heisman, NFL MVP and NBA MVP watch lists ranked by a "Chair Score" (stats + team winning), award headlines, and an **office vote**.
+- **CFP & Bowls** 🏟️ — before Selection Day: a projected 12-team bracket from the CFP rankings (5 highest-ranked conference champs, straight seeding) plus first four out. After: the live bracket, every bowl game (filter by conference or your teams) and bowl records by conference.
+- **Survivor Pool** 💀 — NFL, one team a week, never the same team twice, lose/tie/miss and you're out; if everyone left loses the same week they all survive. Picks hide until kickoff. Joins close the week after the pool starts.
+- **Bracket Challenge** 🏀 — office March Madness, round by round: champion (+25) and one Final Four team per region (+5) locked at the first tip, then every game as matchups are set (1·2·4·8·16·32). Countdown to Selection Sunday until then.
+- **Road to OKC / Road to Omaha** 🥎⚾ — softball and college baseball regionals, super regionals and the College World Series, live in May/June; off-season shows last year's finals and a countdown.
+- Seasonal tiles (Survivor, CFP, Bracket, World Series, Conference Race) move to the front of the home screen when they're in season.
 
 ## Deploy the app (GitHub Pages)
 1. New repo (e.g. `OfficeChairQB`), upload everything **except** the `gas` folder.
@@ -29,6 +38,12 @@ Needed for Pick'em, ProHawgs and Recruiting. Scores/stats/players work without i
 5. Paste it into `js/config.js` (`GAS_URL`) before uploading, or in the app under **More → Settings → Save & test**.
 
 After code changes in GAS: Deploy → Manage deployments → edit → **New version** (same URL).
+
+## Backend update for the new pools (Oct 2026)
+Survivor, the Bracket Challenge and the Award Watch vote need the new `gas/Code.gs`:
+1. Paste the new `gas/Code.gs` over the old one in Apps Script.
+2. **Deploy → Manage deployments → edit → New version** (same URL).
+The `Survivor`, `Bracket` and `Votes` sheet tabs create themselves the first time someone uses them. Everyone uses the same sign-in as Pick'em.
 
 ## Notes
 - Scores/stats come from ESPN's free public feeds — no keys. They're unofficial, so ESPN can change them; if a section goes blank, that's usually why.
