@@ -227,6 +227,7 @@ function renderMore(view) {
   const items = [
     ['🏆', 'Office Pick\'em', 'Weekly NFL + college picks & leaderboard', openPickem],
     ['🏈', 'Fantasy Football', 'Your ESPN league: matchups, standings, rosters', openFantasy],
+    ['▶️', 'Watch Now', 'Every game on TV now or soon, with official stream links', openWatchNow],
     ['📺', 'My Weekend', 'Your teams\' games through Monday, TV & spreads, add to calendar', openWeekend],
     ['💀', 'Survivor Pool', 'NFL: one team a week, last one standing wins', openSurvivor],
     ['🏟️', 'CFP & Bowls', 'Playoff bracket (projected until Selection Day), bowls, conference records', openCFP],

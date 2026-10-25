@@ -113,6 +113,7 @@ function homeTilesHTML(p) {
   const ffl = LS.get('ffl', null), pk = LS.get('pickem', null);
   const tiles = [
     ['ffl', '🏈', 'Fantasy', ffl ? 'My league' : 'Connect league', 'hot'],
+    ['watch', '📺', 'Watch Now', 'Games on TV now', 'hot'],
     ['pickem', '🏆', "Pick'em", pk ? 'Make picks' : 'Join league', 'hot'],
     ['rival', '⚔️', 'Office Rivalry', 'Board · trash talk', 'hot'],
     ['clips', '🎬', 'Highlights', 'Swipe through clips', 'hot'],
@@ -138,7 +139,7 @@ function homeTilesHTML(p) {
   const m = new Date().getMonth(), inSeason = { surv: m >= 8 || m === 0, cfp: m >= 10 || m === 0, mm: m === 2 || m === 3, cws: m === 4 || m === 5, race: m >= 9 || m <= 2 };
   const seasonal = tiles.filter(t => t[0] in inSeason);
   seasonal.forEach(t => { if (!inSeason[t[0]]) t[4] = ''; });
-  const order = [...tiles.slice(0, 2), ...seasonal.filter(t => inSeason[t[0]]), ...tiles.slice(2).filter(t => !(t[0] in inSeason)), ...seasonal.filter(t => !inSeason[t[0]])];
+  const order = [...tiles.slice(0, 3), ...seasonal.filter(t => inSeason[t[0]]), ...tiles.slice(3).filter(t => !(t[0] in inSeason)), ...seasonal.filter(t => !inSeason[t[0]])];
   tiles.splice(0, tiles.length, ...order);
   return `<div class="tiles">${tiles.map(([k, ic, l, sub, kind]) => `<button class="tile ${kind || ''}" data-go="${k}">
     <span class="tile-ico">${kind === 'logo' ? img(ic, 'tile-logo') : ic}</span><b>${esc(l)}</b><small>${esc(sub)}</small></button>`).join('')}</div>`;
@@ -148,7 +149,7 @@ function runTile(k, p) {
   const map = {
     rival: () => openRivalry(), stats: () => openStats(), clips: () => openClipFeed(), brief: openBrief, ffl: openFantasy, pickem: openPickem, stand: openStandings, rank: openRankings, news: openNews, trivia: openTrivia,
     teams: () => openTeamPicker(), settings: openSettings,
-    weekend: openWeekend, surv: openSurvivor, cfp: openCFP, mm: openBracket, race: () => openRace(), awards: () => openAwards(), cws: () => openCWS(),
+    weekend: openWeekend, watch: openWatchNow, surv: openSurvivor, cfp: openCFP, mm: openBracket, race: () => openRace(), awards: () => openAwards(), cws: () => openCWS(),
     scores: () => App.go('scores'), players: () => App.go('players'), myteam: () => App.go('team'),
     pros: () => cf && openTeam(cf.lg, cf.id, 'pros'), recruit: () => cfb && openTeam('cfb', cfb.id, 'recruit')
   };

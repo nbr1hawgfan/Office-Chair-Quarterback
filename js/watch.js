@@ -61,3 +61,40 @@ document.addEventListener('click', e => {
   e.preventDefault(); e.stopPropagation();
   window.open(w.dataset.watch, '_blank', 'noopener');
 }, true);
+
+/* ---------- 📺 Watch Now: every game live now or starting in the next few hours, with official stream links ---------- */
+function openWatchNow() {
+  Sheets.open('📺 Watch Now', ctx => {
+    let lgF = 'all';
+    const draw = async (quiet) => {
+      if (!quiet) ctx.body.innerHTML = loadingHTML('Finding games on right now…');
+      const favs = Prefs.favs(), favKeys = new Set(favs.map(f => f.lg + ':' + f.id));
+      const res = await pool(LEAGUE_ORDER, 5, async lg => (await fetchScoreboard(lg, { filter: LEAGUES[lg].college ? 'all' : null })).events.map(ev => ({ lg, ev })));
+      const soon = Date.now() + 4 * 36e5, seen = new Set();
+      const games = res.flat().filter(Boolean).filter(({ ev }) => {
+        if (seen.has(ev.id)) return false; seen.add(ev.id);
+        const st = statusOf(ev).state;
+        return (st === 'in' || (st === 'pre' && new Date(ev.date) <= soon && new Date(ev.date) >= Date.now() - 36e5)) && watchOptions(ev).length;
+      });
+      const isFav = x => Object.values(sides(x.ev)).some(c => favKeys.has(x.lg + ':' + c.team?.id));
+      const top = x => Object.values(sides(x.ev)).some(c => rankOf(c));
+      games.sort((a, b) => (statusOf(b.ev).state === 'in') - (statusOf(a.ev).state === 'in') || isFav(b) - isFav(a) || top(b) - top(a) || new Date(a.ev.date) - new Date(b.ev.date));
+      const lgs = [...new Set(games.map(x => x.lg))];
+      if (lgF !== 'all' && !lgs.includes(lgF)) lgF = 'all';
+      const show = games.filter(x => lgF === 'all' || x.lg === lgF);
+      const rest = show.filter(x => !isFav(x)), live = rest.filter(x => statusOf(x.ev).state === 'in'), next = rest.filter(x => statusOf(x.ev).state !== 'in');
+      const mine = show.filter(isFav);
+      ctx.body.innerHTML = `<div class="st-note">Every televised game on now or starting in the next 4 hours. Tap <b>▶</b> to open the network's official app — sign in with your TV provider or streaming subscription. Tap the game for scores & stats.</div>
+        ${lgs.length > 1 ? `<div class="chips" id="wnLg"><button data-k="all" class="${lgF === 'all' ? 'on' : ''}">All <small>${games.length}</small></button>${lgs.map(k => `<button data-k="${k}" class="${k === lgF ? 'on' : ''}">${lgIcon(k)}${LEAGUES[k].short} <small>${games.filter(x => x.lg === k).length}</small></button>`).join('')}</div>` : ''}
+        ${mine.length ? `<h3 class="sec-h">⭐ My Teams <small>${mine.length}</small></h3><div class="tv-list">${mine.map(x => tvRowHTML(x, favKeys)).join('')}</div>` : ''}
+        ${live.length ? `<h3 class="sec-h"><i class="dot"></i>On Now <small>${live.length}</small></h3><div class="tv-list">${live.map(x => tvRowHTML(x, favKeys)).join('')}</div>` : ''}
+        ${next.length ? `<h3 class="sec-h">Starting Soon <small>${next.length}</small></h3><div class="tv-list">${next.map(x => tvRowHTML(x, favKeys)).join('')}</div>` : ''}
+        ${!show.length ? emptyHTML('Nothing televised on right now or in the next few hours. Check My Weekend for what\'s coming up. 📺') : ''}`;
+      const c = qs('#wnLg', ctx.body);
+      if (c) c.onclick = e => { const b = e.target.closest('button'); if (b) { lgF = b.dataset.k; draw(true); } };
+    };
+    ctx.body.onclick = e => { const r = e.target.closest('.tv-row[data-ev]'); if (r) openGame(r.dataset.lg, r.dataset.ev); };
+    draw().catch(e => { ctx.body.innerHTML = errHTML(e); });
+    ctx.timers.push(setInterval(() => { if (ctx.alive && !document.hidden) { clearMem(); draw(true).catch(() => { }); } }, 60000));
+  });
+}
