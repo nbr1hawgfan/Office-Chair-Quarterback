@@ -171,7 +171,7 @@ function openSettings() {
           <label class="lbl">Fan name<input class="search" id="sFan" value="${esc(p.fan || '')}" maxlength="24" placeholder="e.g. nbr1hawgfan"></label>
           <p class="hint">Pick'em & rivalry use your sign-in name${pickemCreds() ? `: <b>${esc(pickemCreds().name)}</b>` : ''}.</p></div>
         <div class="card"><h4>☁️ Backup & sync</h4>${Sync.ready()
-          ? `<p class="hint">Your teams, colors and settings are saved to <b>${esc(pickemCreds().name)}</b>. Sign in with the same fan name and PIN on any phone or computer and everything comes with you. Last saved: <b id="sSyncAt">${esc(Sync.lastSavedText())}</b></p><button class="btn ghost" id="sSync">Sync now</button>`
+          ? `<p class="hint">Your teams, colors and settings are saved to <b>${esc(pickemCreds().name)}</b>. Sign in with the same fan name and PIN on any phone or computer and everything comes with you. Last saved: <b id="sSyncAt">${esc(Sync.lastSavedText())}</b></p><p class="hint sync-err" id="sSyncErr">${Sync.lastError ? '⚠️ ' + esc(Sync.lastError) : ''}</p><button class="btn ghost" id="sSync">Sync now</button>`
           : `<p class="hint">Sign in with your fan name and PIN to back up your teams and use them on other devices.</p>`}</div>
         <div class="card"><h4>Look</h4><div class="seg" id="sLook">${[['dark', '🌙 Dark'], ['light', '☀️ Light'], ['auto', '📱 Match phone']].map(([k, l]) => `<button data-look="${k}" class="${Look.get() === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
         <div class="card"><h4>Score ticker</h4><label class="chk"><input type="checkbox" id="sTicker" ${LS.get('tickerOn', true) ? 'checked' : ''}> Show the scrolling score ticker</label></div>
@@ -195,18 +195,28 @@ function openSettings() {
       const lk = t.closest('[data-look]'); if (lk) { Look.set(lk.dataset.look); qsa('#sLook button', ctx.body).forEach(b => b.classList.toggle('on', b === lk)); return; }
       if (t.id === 'sBrief') return openBrief();
       if (t.id === 'sSync') {
-        t.textContent = 'Syncing…';
-        const ok = _raw.get('syncDirty') ? await Sync.push() : true;
-        const changed = await Sync.pull(true);
-        if (changed) { Sync.refreshUI(); draw(); } else { await Sync.push(); const at = qs('#sSyncAt', ctx.body); if (at) at.textContent = Sync.lastSavedText(); t.textContent = 'Sync now'; }
-        return toast(ok ? '☁️ All synced' : 'Couldn\'t reach the backend — will retry');
+        t.textContent = 'Syncing…'; t.disabled = true; Sync.lastError = '';
+        // Newest change wins: if this device has unsaved changes, save them; otherwise bring down the latest saved copy
+        let ok = true, changed = false;
+        if (_raw.get('syncDirty')) ok = await Sync.push();
+        if (ok && !Sync.lastError) { changed = await Sync.pull(true); if (!Sync.lastError && !changed) ok = await Sync.push(); }
+        ok = ok && !Sync.lastError;
+        t.disabled = false; t.textContent = 'Sync now';
+        if (changed) { Sync.refreshUI(); draw(); }
+        const at = qs('#sSyncAt', ctx.body); if (at) at.textContent = Sync.lastSavedText();
+        const why = qs('#sSyncErr', ctx.body); if (why) why.textContent = ok ? '' : '⚠️ ' + Sync.lastError;
+        return toast(ok ? (changed ? '☁️ Pulled your latest teams & colors' : '☁️ All synced') : '⚠️ Sync failed — see Settings for why', ok ? 2400 : 4000);
       }
       if (t.id === 'sParty') { const th = Prefs.get().theme; return confetti(th ? [`#${th.c}`, `#${th.a}`, '#ffffff'] : ['#1f6feb', '#f2c94c', '#fff']); }
       if (t.dataset.theme) { const [lg, id] = t.dataset.theme.split(':'); const f = Prefs.favs().find(x => x.lg === lg && String(x.id) === id); if (f) Prefs.setTheme(f); return draw(); }
       if (t.dataset.rm) { const [lg, id] = t.dataset.rm.split(':'); const f = Prefs.favs().find(x => x.lg === lg && String(x.id) === id); if (f) Prefs.toggleFav(f); return draw(); }
       if (t.id === 'sTest') {
         LS.set('gasUrl', qs('#sGas', ctx.body).value.trim());
-        try { const r = await gasGet({ action: 'ping' }); toast('Connected ✔ ' + (r.app || '')); } catch (er) { toast('Could not reach backend: ' + er.message, 4000); }
+        try {
+          const r = await gasGet({ action: 'ping' });
+          if (!r.version || r.version < CONFIG.BACKEND_VERSION) toast('⚠️ Connected, but the Apps Script is out of date (' + (r.version || 'before Oct 25') + '). Paste the latest gas/Code.gs and deploy a New version — sync, Survivor and the bracket need it.', 7000);
+          else toast('Connected ✔ ' + (r.app || '') + ' · backend ' + r.version);
+        } catch (er) { toast('Could not reach backend: ' + er.message, 4000); }
       }
       if (t.id === 'sClear') {
         Object.keys(localStorage).filter(k => k.startsWith('ocq_teams:')).forEach(k => localStorage.removeItem(k));

@@ -11,7 +11,21 @@ const _raw = {
 };
 
 const Sync = {
-  timer: null, lastPull: 0, applying: false,
+  timer: null, lastPull: 0, applying: false, lastError: '',
+  // Plain-English reason a sync failed
+  explain(e) {
+    const m = String(e && e.message || e || '');
+    if (/unknown action/i.test(m)) return 'The Apps Script backend is out of date. Paste the latest gas/Code.gs, then Deploy → Manage deployments → edit → New version.';
+    if (/not recognized|wrong invite/i.test(m)) return 'Your sign-in didn\'t match (' + m + '). Sign out of Pick\'em and back in with your fan name + PIN.';
+    if (/GAS_NOT_SET/.test(m)) return 'No backend URL set (Settings → Backend).';
+    if (/failed to fetch|load failed|network|json|unexpected token/i.test(m)) return 'Couldn\'t reach the backend (' + m + '). Check your connection, or make sure the web app is deployed with access "Anyone".';
+    return m || 'Unknown error';
+  },
+  // gasPost with one retry for flaky phone connections
+  async call(body) {
+    try { return await gasPost(body); }
+    catch (e) { if (/unknown action|not recognized|wrong invite|too large/i.test(e.message)) throw e; await new Promise(r => setTimeout(r, 1200)); return gasPost(body); }
+  },
   ready() { return !!(gasUrl() && pickemCreds() && Prefs.get().fan); },
   device() {
     const ua = navigator.userAgent;
@@ -34,12 +48,13 @@ const Sync = {
     if (!this.ready()) return false;
     const c = pickemCreds(), t = Number(_raw.get('syncDirty')) || Date.now();
     try {
-      const r = await gasPost({ action: 'saveSettings', code: c.code, name: c.name, pin: c.pin, data: this.snapshot(), t, device: this.device() });
+      const r = await this.call({ action: 'saveSettings', code: c.code, name: c.name, pin: c.pin, data: this.snapshot(), t, device: this.device() });
       if (r.stale) { _raw.del('syncDirty'); return this.pull(true).then(ch => { if (ch) this.refreshUI(); return ch; }); }
       _raw.set('syncAt', String(r.updated || t));
       if (Number(_raw.get('syncDirty')) === t) _raw.del('syncDirty');
+      this.lastError = '';
       return true;
-    } catch (e) { return false; } // stays dirty; retried on the next change or app open
+    } catch (e) { this.lastError = this.explain(e); console.warn('Sync save failed:', e); return false; } // stays dirty; retried on the next change or app open
   },
   // Bring down the saved settings. Returns true if anything on this device changed.
   async pull(force) {
@@ -48,7 +63,8 @@ const Sync = {
     this.lastPull = Date.now();
     const c = pickemCreds();
     let r;
-    try { r = await gasPost({ action: 'loadSettings', code: c.code, name: c.name, pin: c.pin }); } catch (e) { return false; }
+    try { r = await this.call({ action: 'loadSettings', code: c.code, name: c.name, pin: c.pin }); this.lastError = ''; }
+    catch (e) { this.lastError = this.explain(e); console.warn('Sync load failed:', e); return false; }
     if (!r.data || !Object.keys(r.data).length) { if (Object.keys(this.snapshot()).length) this.mark(); return false; }
     if (!force && r.updated <= (Number(_raw.get('syncAt')) || 0)) return false;
     const before = JSON.stringify(this.snapshot());

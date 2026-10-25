@@ -845,3 +845,4 @@ html:not(.light) .conf-ico{filter:drop-shadow(0 0 1px rgba(255,255,255,.55))}
 .watch-btn{flex:1 1 140px;display:flex;flex-direction:column;gap:2px;padding:11px 13px;border-radius:12px;background:var(--p);color:var(--p-ink);text-decoration:none;box-shadow:0 0 0 2px var(--a) inset}
 .watch-btn b{font-size:14px}.watch-btn b::before{content:"▶ "}
 .watch-btn small{color:inherit;opacity:.8;font-size:11px}
+.sync-err{color:var(--loss);font-weight:600}.sync-err:empty{display:none}

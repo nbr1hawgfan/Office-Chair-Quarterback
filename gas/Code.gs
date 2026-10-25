@@ -14,6 +14,7 @@
  */
 
 const APP = 'Office Chair QB';
+const BACKEND_VERSION = '2026-10-25'; // the app checks this to tell you when the deployed script is out of date
 const SITE = 'https://site.api.espn.com/apis/site/v2/sports/';
 const PATHS = {
   nfl: 'football/nfl', cfb: 'football/college-football', nba: 'basketball/nba', wnba: 'basketball/wnba',
@@ -44,7 +45,7 @@ function doGet(e) {
   const p = e.parameter || {};
   try {
     switch (p.action) {
-      case 'ping': return out({ ok: true, app: APP });
+      case 'ping': return out({ ok: true, app: APP, version: BACKEND_VERSION });
       case 'espn': return espnProxy(p.u, p.trim);
       case 'fantasy': return fantasyRelay(p);
       case 'pros': return out(getPros(p.college, p.collegeId));
