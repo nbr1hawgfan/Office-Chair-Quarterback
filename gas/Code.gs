@@ -14,7 +14,7 @@
  */
 
 const APP = 'Office Chair QB';
-const BACKEND_VERSION = '2026-10-25'; // the app checks this to tell you when the deployed script is out of date
+const BACKEND_VERSION = '2026-10-26'; // the app checks this to tell you when the deployed script is out of date
 const SITE = 'https://site.api.espn.com/apis/site/v2/sports/';
 const PATHS = {
   nfl: 'football/nfl', cfb: 'football/college-football', nba: 'basketball/nba', wnba: 'basketball/wnba',
@@ -65,6 +65,7 @@ function doGet(e) {
       case 'survBoard': checkCode(p.code); return out(survBoard(p.season, Number(p.week) || 0, p.name));
       case 'bracketMine': checkUser(p.code, p.name, p.pin); return out({ picks: bracketMine(p.name, p.season) });
       case 'bracketBoard': checkCode(p.code); return out(bracketBoard(p));
+      case 'titles': return out(teamTitles(p.lg, p.team, p.loc));
       case 'votes': checkCode(p.code); return out(getVotes(p.award, p.season, p.name));
       default: return out({ error: 'Unknown action' });
     }
@@ -990,4 +991,91 @@ function castVote(b) {
     s.appendRow(row);
   } finally { lock.releaseLock(); }
   return getVotes(award, season, name);
+}
+
+
+/* ================= TITLES & DROUGHTS =================
+   Pro leagues: walks back through every final regular-season standings ESPN has (division level),
+   records each division winner and (NFL) every playoff team. Built once per league and stored in
+   HistoryCache, so one build answers every team; it tops up when a new season finishes.
+   College football: conference championship game wins + bowl / CFP games from the CollegeFootballData game log. */
+const TITLE_FROM = { nfl: 1970, nba: 1971, mlb: 1969, nhl: 1975 };
+function lastDoneSeason(lg) {
+  const d = new Date(), y = d.getFullYear(), m = d.getMonth(), day = d.getDate();
+  if (lg === 'nfl') return m === 0 && day < 10 ? y - 2 : y - 1;
+  if (lg === 'nba' || lg === 'nhl') return m >= 4 ? y : y - 1;   // seasons are named by the year they end
+  if (lg === 'mlb') return m >= 9 ? y : y - 1;
+  return y - 1;
+}
+function nflPlayoffSpots(y) { return y >= 2020 ? 7 : y >= 1990 ? 6 : y >= 1978 ? 5 : 4; }
+function stNum(e, re) { const s = (e.stats || []).find(x => re.test(x.name || '') || re.test(x.type || '')); return s ? Number(s.value) : NaN; }
+function divisionsOf(node, out) {
+  out = out || [];
+  if (node.standings && (node.standings.entries || []).length && !(node.children || []).length) out.push({ name: node.name || node.abbreviation || '', entries: node.standings.entries });
+  (node.children || []).forEach(c => divisionsOf(c, out));
+  return out;
+}
+function seasonTitles(lg, y, d) {
+  const divs = divisionsOf(d);
+  if (!divs.length || divs.length < 2) return null;
+  const res = { div: {}, po: [] };
+  divs.forEach(dv => {
+    const rows = dv.entries.map((e, i) => ({ id: String((e.team || {}).id), i: i, seed: stNum(e, /^playoffSeed$/i), pct: stNum(e, /^winPercent$/i), pts: stNum(e, /^points$/i) }));
+    let best;
+    if (lg === 'nfl' && rows.some(r => r.seed > 0)) best = rows.filter(r => r.seed > 0).sort((a, b) => a.seed - b.seed)[0];
+    else if (lg === 'nhl' && rows.some(r => !isNaN(r.pts))) best = rows.slice().sort((a, b) => (b.pts - a.pts) || a.i - b.i)[0];
+    else best = rows.slice().sort((a, b) => ((b.pct || 0) - (a.pct || 0)) || a.i - b.i)[0];
+    if (best) res.div[best.id] = dv.name;
+    if (lg === 'nfl') rows.forEach(r => { if (r.seed > 0 && r.seed <= nflPlayoffSpots(y)) res.po.push(r.id); });
+  });
+  return res;
+}
+function leagueTitles(lg) {
+  if (!TITLE_FROM[lg]) throw new Error('Titles are for NFL, NBA, MLB and NHL');
+  const last = lastDoneSeason(lg), key = 'titles2:' + lg;
+  let data = histGet(key, 0) || { lg: lg, seasons: {}, tried: {} };
+  const want = [];
+  for (let y = last; y >= TITLE_FROM[lg]; y--) if (!data.seasons[y] && !(Date.now() - (Number(data.tried[y]) || 0) < 30 * 864e5)) want.push(y);
+  if (!want.length) return data;
+  const lock = LockService.getScriptLock(); lock.waitLock(30000);
+  try {
+    data = histGet(key, 0) || data;
+    for (let i = 0; i < want.length; i += 15) {
+      const ys = want.slice(i, i + 15);
+      const resps = espnFetchAll(ys.map(y => 'https://site.web.api.espn.com/apis/v2/sports/' + PATHS[lg] + '/standings?season=' + y + '&level=3'));
+      resps.forEach((r, k) => {
+        const y = ys[k];
+        try { const t = r.getResponseCode() === 200 ? seasonTitles(lg, y, JSON.parse(r.getContentText())) : null; if (t) { data.seasons[y] = t; delete data.tried[y]; } else data.tried[y] = Date.now(); }
+        catch (e) { data.tried[y] = Date.now(); }
+      });
+      Utilities.sleep(300);
+    }
+    // a season ESPN didn't answer is retried after 30 days
+    data.built = new Date().toISOString();
+    histPut(key, data);
+    return data;
+  } finally { lock.releaseLock(); }
+}
+function teamTitles(lg, team, loc) {
+  if (lg === 'cfb') return cfbTitles(loc || team);
+  const data = leagueTitles(lg), id = String(team);
+  const years = Object.keys(data.seasons).map(Number).sort((a, b) => b - a);
+  if (!years.length) throw new Error('ESPN didn\'t return past standings for this league');
+  const div = years.filter(y => data.seasons[y].div[id]).map(y => ({ y: y, name: data.seasons[y].div[id] }));
+  const po = lg === 'nfl' ? years.filter(y => data.seasons[y].po.indexOf(id) >= 0) : null;
+  const last = lastDoneSeason(lg);
+  return { lg: lg, from: years[years.length - 1], to: years[0], last: last, seasons: years.length, div: div, po: po,
+    divDrought: div.length ? last - div[0].y : null, poDrought: po && po.length ? last - po[0] : null };
+}
+function cfbTitles(t) {
+  const team = cfbName(t); if (!team) throw new Error('Missing team');
+  let games; try { games = gameIndex(team); } catch (e) { throw new Error('College titles need the CFBD_KEY script property (same as Recruiting)'); }
+  const cur = new Date().getFullYear();
+  const confGame = g => /championship/i.test(g.n || '') && !/bowl|playoff|national|cfp/i.test(g.n || '');
+  const champ = games.filter(g => confGame(g) && g.us > g.them).map(g => ({ y: g.y, name: (g.n || '').replace(/\s*game\s*$/i, ''), o: g.o, s: g.us + '-' + g.them })).sort((a, b) => b.y - a.y);
+  const lost = games.filter(g => confGame(g) && g.us < g.them).length;
+  const post = games.filter(g => g.post && !confGame(g)).map(g => ({ y: g.y, name: g.n || 'Bowl', o: g.o, r: g.us > g.them ? 'W' : g.us < g.them ? 'L' : 'T', s: g.us + '-' + g.them })).sort((a, b) => b.y - a.y);
+  const from = games.length ? Math.min.apply(null, games.map(g => g.y)) : null;
+  return { lg: 'cfb', team: team, from: from, to: cur, confTitles: champ, confGameLosses: lost, bowls: post,
+    bowlRec: post.reduce((a, b) => (a[b.r] = (a[b.r] || 0) + 1, a), {}), lastBowlDrought: post.length ? cur - 1 - post[0].y : null };
 }

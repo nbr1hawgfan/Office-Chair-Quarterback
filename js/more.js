@@ -22,18 +22,40 @@ function flattenStandings(node, out = []) {
   (node.children || []).forEach(c => flattenStandings(c, out));
   return out;
 }
+/* Past seasons: ESPN names NBA/NHL/college hoops seasons by the year they end */
+const ENDS_LATER = ['nba', 'nhl', 'mbb', 'wbb'];
+function seasonLabel(lg, y) { return ENDS_LATER.includes(lg) ? `${y - 1}-${String(y).slice(2)}` : String(y); }
+function lastFullSeason(lg) {
+  const d = new Date(), y = d.getFullYear(), m = d.getMonth();
+  if (lg === 'nfl' || lg === 'cfb') return m === 0 && d.getDate() < 10 ? y - 2 : y - 1;
+  if (ENDS_LATER.includes(lg)) return m >= 4 ? y : y - 1;
+  if (lg === 'wnba') return m >= 9 ? y : y - 1;
+  return m >= 9 ? y : y - 1; // MLB, college baseball & softball
+}
+async function fetchStandings(lg, season) {
+  const base = `${STAND}${LEAGUES[lg].path}/standings`;
+  if (!season) return getJSON(base, 600);
+  const d = await getJSON(`${base}?season=${season}`, 86400);
+  if (flattenStandings(d).length) return d;
+  return getJSON(`${base}?season=${season}&seasontype=2`, 86400);
+}
 function openStandings() {
   Sheets.open('Standings', ctx => {
-    let lg = LS.get('standLg', 'cfb');
-    ctx.body.innerHTML = lgChipsHTML(LEAGUE_ORDER, lg, 'stLg') + '<div id="stBody"></div>';
-    const body = qs('#stBody', ctx.body);
+    let lg = LS.get('standLg', 'cfb'), season = '';
+    ctx.body.innerHTML = lgChipsHTML(LEAGUE_ORDER, lg, 'stLg') + '<div id="stSeason"></div><div id="stBody"></div>';
+    const body = qs('#stBody', ctx.body), seasonEl = qs('#stSeason', ctx.body);
+    const drawSeasons = () => {
+      const last = lastFullSeason(lg), years = []; for (let y = last; y > last - 30; y--) years.push(y);
+      seasonEl.innerHTML = `<select class="sel" id="stYr"><option value="">📅 This season (live)</option>${years.map(y => `<option value="${y}" ${String(y) === String(season) ? 'selected' : ''}>${seasonLabel(lg, y)} final standings</option>`).join('')}</select>`;
+      qs('#stYr', seasonEl).onchange = e => { season = e.target.value; load(); };
+    };
     const load = async () => {
       body.innerHTML = loadingHTML();
       try {
         const L = LEAGUES[lg];
-        const d = await getJSON(`${STAND}${L.path}/standings`, 600);
+        const d = await fetchStandings(lg, season);
         const groups = flattenStandings(d);
-        if (!groups.length) { body.innerHTML = emptyHTML('Standings not available yet this season.'); return; }
+        if (!groups.length) { body.innerHTML = emptyHTML(season ? `ESPN doesn't have ${seasonLabel(lg, season)} ${L.short} standings — try a more recent year.` : 'Standings not available yet this season.'); return; }
         const sport = L.path.split('/')[0];
         let gi = LS.get('standGroup:' + lg, null);
         if (gi == null || !groups[gi]) { gi = L.college ? Math.max(0, groups.findIndex(g => /southeastern|sec/i.test(g.name))) : -1; }
@@ -56,8 +78,8 @@ function openStandings() {
         body.onclick = e => { const r = e.target.closest('tr[data-team]'); if (r) openTeam(lg, r.dataset.team); };
       } catch (e) { body.innerHTML = errHTML(e); }
     };
-    bindChips(ctx.body, 'stLg', k => { lg = k; LS.set('standLg', k); load(); });
-    load();
+    bindChips(ctx.body, 'stLg', k => { lg = k; LS.set('standLg', k); season = ''; drawSeasons(); load(); });
+    drawSeasons(); load();
   });
 }
 

@@ -6,7 +6,7 @@ const CONFIG = {
   // Extra college teams always included in the office pick'em (by school name)
   PICKEM_EXTRA_SCHOOLS: ['Tulsa', 'Nebraska', 'Oklahoma State'],
   EBAY_CARD_CATEGORY: '212', // eBay "Sports Trading Cards"
-  BACKEND_VERSION: '2026-10-25' // gas/Code.gs version this app expects
+  BACKEND_VERSION: '2026-10-26' // gas/Code.gs version this app expects
 };
 
 const LEAGUES = {

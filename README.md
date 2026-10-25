@@ -21,6 +21,8 @@ Sports-only PWA for the office. Dark, mobile-first, static files on GitHub Pages
 - **Bracket Challenge** 🏀 — office March Madness, round by round: champion (+25) and one Final Four team per region (+5) locked at the first tip, then every game as matchups are set (1·2·4·8·16·32). Countdown to Selection Sunday until then.
 - **Road to OKC / Road to Omaha** 🥎⚾ — softball and college baseball regionals, super regionals and the College World Series, live in May/June; off-season shows last year's finals and a countdown.
 - **My Links** 🔗 — each person's own group chats, fan blogs, Discords and podcasts. Tie a link to a followed team and it also shows on that team's page (college links cover every sport at that school) and in the Game Center during their games. Private to that person, backed up with their settings sync so it follows them to every device. The app doesn't check these sites.
+- **Past standings** 📅 — Standings has a season picker: any of the last 30 seasons' final standings for every league (as far back as ESPN has them).
+- **🏆 Titles tab** on team pages — NFL/NBA/MLB/NHL: every division title (and NFL playoff trip) in ESPN's past standings with the current drought ("Last division title: 2002 · 23 seasons ago"). College football: conference championship game wins and bowl/CFP games. Built once per league by the backend (about a minute the first time), then instant.
 - Seasonal tiles (Survivor, CFP, Bracket, World Series, Conference Race) move to the front of the home screen when they're in season.
 
 ## Deploy the app (GitHub Pages)
@@ -40,8 +42,8 @@ Needed for Pick'em, ProHawgs and Recruiting. Scores/stats/players work without i
 
 After code changes in GAS: Deploy → Manage deployments → edit → **New version** (same URL).
 
-## Backend update for the new pools (Oct 2026)
-Survivor, the Bracket Challenge and the Award Watch vote need the new `gas/Code.gs`:
+## Backend update for the new pools & Titles tab (Oct 2026)
+Survivor, the Bracket Challenge, the Award Watch vote, settings sync and the Titles tab need the new `gas/Code.gs` (More → Settings → Save & test shows the version):
 1. Paste the new `gas/Code.gs` over the old one in Apps Script.
 2. **Deploy → Manage deployments → edit → New version** (same URL).
 The `Survivor`, `Bracket` and `Votes` sheet tabs create themselves the first time someone uses them. Everyone uses the same sign-in as Pick'em.
