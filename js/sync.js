@@ -3,7 +3,7 @@
    Apps Script backend under the person's fan name + PIN, so every phone or computer they sign in
    on stays the same. Saves happen automatically a few seconds after any change; the newest change wins. */
 
-const SYNC_KEYS = ['prefs', 'look', 'tickerOn', 'ffl', 'fflScoring', 'brief', 'triviaBest', 'clipMuted', 'recentPlayers', 'statsLg', 'injFilt'];
+const SYNC_KEYS = ['prefs', 'look', 'tickerOn', 'ffl', 'fflScoring', 'brief', 'triviaBest', 'clipMuted', 'recentPlayers', 'statsLg', 'injFilt', 'myLinks'];
 const _raw = {
   get: k => { try { return localStorage.getItem('ocq_' + k); } catch (e) { return null; } },
   set: (k, v) => { try { localStorage.setItem('ocq_' + k, v); } catch (e) { } },

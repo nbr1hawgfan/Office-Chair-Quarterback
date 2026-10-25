@@ -183,6 +183,7 @@ function openGame(lg, eventId) {
       const ss = (d.seasonseries || [])[0]; if (ss?.summary) info.push('🔁 ' + ss.summary);
       if (info.length) html += `<div class="gc-info">${info.map(i => `<span>${esc(i)}</span>`).join('')}</div>`;
       html += watchCardHTML({ competitions: [comp], status: comp.status, date: comp.date });
+      html += linkPillsHTML(Links.forGame(lg, cs), '🔗 Your links for this game');
       const gclips = clipsFrom(d, { lg, ev: eventId });
       if (gclips.length) html += `<div class="card"><h4>🎬 Highlights</h4>${clipRowHTML(gclips, 'g' + eventId)}</div>`;
       if (lg === 'cfb' && gasUrl()) html += `<div id="gcSeries">${seriesHTML || ''}</div>`;

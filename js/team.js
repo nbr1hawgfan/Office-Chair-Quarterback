@@ -81,6 +81,14 @@ async function renderTeamPage(root, lg, id, setTitle, startTab) {
       <div class="th-btns"><button class="pill" id="tFav">${fav ? '★ Following' : '☆ Follow'}</button><button class="pill" id="tTheme">🎨 Use colors</button></div></div></div>
     ${nextHTML}`;
   root.appendChild(head);
+  const myLinks = Links.forTeam(lg, t);
+  const linkRow = document.createElement('div');
+  linkRow.className = 'ml-team';
+  linkRow.innerHTML = myLinks.length
+    ? `<div class="ml-pills">${myLinks.map(l => `<a class="ml-pill" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${Links.icon(l.url)}<span>${esc(l.kind || '')} ${esc(l.name)}</span></a>`).join('')}<button class="ml-pill add" data-addlink="1">＋</button></div>`
+    : `<button class="ml-pill add solo" data-addlink="1">🔗 Add a link for ${esc(t.location || t.shortDisplayName || 'this team')} (group chat, blog…)</button>`;
+  linkRow.onclick = e => { if (e.target.closest('[data-addlink]')) { if (!Prefs.isFav(lg, t.id)) { toast('Follow this team first to tie links to it'); return; } openMyLinks(Links.tagFor(lg, t)); } };
+  root.appendChild(linkRow);
   const favObj = favFromTeam(lg, { ...t, logo: logoOf(t) });
   qs('#tFav', head).onclick = e => { const on = Prefs.toggleFav(favObj); e.target.textContent = on ? '★ Following' : '☆ Follow'; };
   qs('#tTheme', head).onclick = () => { Prefs.setTheme(favObj); toast('Colors applied'); };

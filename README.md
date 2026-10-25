@@ -20,6 +20,7 @@ Sports-only PWA for the office. Dark, mobile-first, static files on GitHub Pages
 - **Survivor Pool** 💀 — NFL, one team a week, never the same team twice, lose/tie/miss and you're out; if everyone left loses the same week they all survive. Picks hide until kickoff. Joins close the week after the pool starts.
 - **Bracket Challenge** 🏀 — office March Madness, round by round: champion (+25) and one Final Four team per region (+5) locked at the first tip, then every game as matchups are set (1·2·4·8·16·32). Countdown to Selection Sunday until then.
 - **Road to OKC / Road to Omaha** 🥎⚾ — softball and college baseball regionals, super regionals and the College World Series, live in May/June; off-season shows last year's finals and a countdown.
+- **My Links** 🔗 — each person's own group chats, fan blogs, Discords and podcasts. Tie a link to a followed team and it also shows on that team's page (college links cover every sport at that school) and in the Game Center during their games. Private to that person, backed up with their settings sync so it follows them to every device. The app doesn't check these sites.
 - Seasonal tiles (Survivor, CFP, Bracket, World Series, Conference Race) move to the front of the home screen when they're in season.
 
 ## Deploy the app (GitHub Pages)

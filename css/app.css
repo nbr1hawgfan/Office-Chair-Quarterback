@@ -846,3 +846,23 @@ html:not(.light) .conf-ico{filter:drop-shadow(0 0 1px rgba(255,255,255,.55))}
 .watch-btn b{font-size:14px}.watch-btn b::before{content:"▶ "}
 .watch-btn small{color:inherit;opacity:.8;font-size:11px}
 .sync-err{color:var(--loss);font-weight:600}.sync-err:empty{display:none}
+
+/* My Links */
+.ml-ico{width:22px;height:22px;border-radius:6px;flex:none;object-fit:contain;background:#fff;padding:2px}
+.ml-ico.em{background:none;padding:0;font-size:17px;display:inline-flex;align-items:center;justify-content:center}
+.ml-list{display:flex;flex-direction:column;gap:8px}
+.ml-row{display:flex;align-items:center;gap:6px;padding:8px 10px;border-radius:var(--r);background:var(--card);border:1px solid var(--line)}
+.ml-row .icon-btn{width:32px;height:32px;font-size:12px;flex:none}
+.ml-main{flex:1;min-width:0;display:flex;align-items:center;gap:10px;color:var(--txt);text-decoration:none}
+.ml-main span{min-width:0;display:flex;flex-direction:column}
+.ml-main b,.ml-main small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ml-form .lbl{display:block;margin-top:6px;font-size:13px;color:var(--mut)}
+.ml-btns{display:flex;gap:8px;flex-wrap:wrap}.ml-btns .btn{flex:1 1 100px}
+.btn.danger{color:var(--loss)}
+.ml-pills{display:flex;flex-wrap:wrap;gap:8px}
+.ml-pill{display:inline-flex;align-items:center;gap:7px;padding:7px 12px 7px 8px;border-radius:20px;background:var(--card);border:1px solid var(--line);color:var(--txt);text-decoration:none;font-size:13px;font-weight:600;max-width:100%}
+.ml-pill span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ml-pill.add{padding:7px 12px;color:var(--mut);border-style:dashed}
+.ml-pill.add.solo{width:100%;justify-content:center}
+.ml-team{margin:10px 0 2px}
+.ml-card .ml-pill{background:var(--bg2)}
