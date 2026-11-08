@@ -160,10 +160,17 @@ async function renderScores(view) {
 function openGame(lg, eventId) {
   Sheets.open('Game Center', async ctx => {
     const L = LEAGUES[lg];
-    let seriesHTML = null;
+    let seriesHTML = null, lastD = null;
+    // GameCast state survives the 15-second refreshes
+    const gc = { tab: null, filter: 'all', pitches: LS.get('gcPitches', false), open: new Set(), seen: null };
+    gc.isNew = p => !!(gc.seen && p.id && !gc.seen.has(String(p.id)));
+    ctx.body.addEventListener('toggle', e => { const dt = e.target.closest && e.target.closest('details[data-did]'); if (dt) dt.open ? gc.open.add(dt.dataset.did) : gc.open.delete(dt.dataset.did); }, true);
     const draw = async () => {
       const d = await getJSON(`${SITE}${L.path}/summary?event=${eventId}`, 15);
       if (!ctx.alive) return;
+      lastD = d; render(d);
+    };
+    const render = d => {
       const comp = d.header?.competitions?.[0] || {};
       const cs = comp.competitors || [];
       const away = cs.find(c => c.homeAway === 'away') || cs[0] || {}, home = cs.find(c => c.homeAway === 'home') || cs[1] || {};
@@ -175,7 +182,12 @@ function openGame(lg, eventId) {
         <div class="gc-mid"><div class="gc-score">${st.state === 'pre' ? 'vs' : `${esc(scoreVal(away.score))}<span>–</span>${esc(scoreVal(home.score))}`}</div>
           <div class="gc-st ${st.state === 'in' ? 'live' : ''}">${st.state === 'in' ? '<i class="dot"></i>' : ''}${esc(st.state === 'pre' ? fmtDay(comp.date) + ' ' + fmtTime(comp.date) : st.shortDetail || '')}</div></div>
         ${big(home)}</div>`;
-
+      const hasCast = st.state === 'in' || (d.plays || []).length || (d.drives?.previous || []).length;
+      if (!gc.tab) gc.tab = st.state === 'in' && hasCast ? 'cast' : 'sum';
+      if (hasCast) html += `<div class="seg gc-tabs"><button data-gct="sum" class="${gc.tab === 'sum' ? 'on' : ''}">📊 Summary</button><button data-gct="cast" class="${gc.tab === 'cast' ? 'on' : ''}">📡 GameCast${st.state === 'in' ? ' <i class="dot"></i>' : ''}</button></div>`;
+      if (hasCast && gc.tab === 'cast') {
+        html += gamecastHTML(lg, d, comp, away, home, gc);
+      } else {
       const info = [];
       const venue = d.gameInfo?.venue?.fullName; if (venue) info.push('📍 ' + venue);
       const tv = (comp.broadcasts || []).map(b => b.media?.shortName).filter(Boolean).join(', '); if (tv) info.push('📺 ' + tv);
@@ -224,15 +236,24 @@ function openGame(lg, eventId) {
       }
       if (lg === 'nfl' && bp.length) html += fantasyBoxHTML(bp);
       if (!leaders.length && !bt.length && st.state === 'pre') html += emptyHTML('Box score shows up once the game starts.');
+      }
+      const y = ctx.body.scrollTop;
       ctx.body.innerHTML = html;
-      if (lg === 'cfb' && gasUrl() && seriesHTML === null) { seriesHTML = ''; const el = qs('#gcSeries', ctx.body); gameSeriesCard(el, away, home).then(() => { seriesHTML = el.innerHTML; }); }
+      ctx.body.scrollTop = y;
+      // remember every play shown so the next refresh can flash the new ones
+      if (!gc.seen) gc.seen = new Set();
+      gcPlays(d, lg).forEach(p => p.id && gc.seen.add(String(p.id)));
+      if (lg === 'cfb' && gasUrl() && seriesHTML === null && qs('#gcSeries', ctx.body)) { seriesHTML = ''; const el = qs('#gcSeries', ctx.body); gameSeriesCard(el, away, home).then(() => { seriesHTML = el.innerHTML; }); }
       ctx.body.onclick = e => {
+        const gt = e.target.closest('[data-gct]'); if (gt) { gc.tab = gt.dataset.gct; ctx.body.scrollTop = 0; return render(lastD); }
+        const gf = e.target.closest('[data-gcf]'); if (gf) { gc.filter = gf.dataset.gcf; return render(lastD); }
+        const gp = e.target.closest('[data-gcp]'); if (gp) { gc.pitches = !gc.pitches; LS.set('gcPitches', gc.pitches); return render(lastD); }
         const fs = e.target.closest('[data-fs]');
-        if (fs) { LS.set('fflScoring', fs.dataset.fs); const box = qs('#fbox', ctx.body); if (box) box.outerHTML = fantasyBoxHTML(bp); return; }
+        if (fs) { LS.set('fflScoring', fs.dataset.fs); const box = qs('#fbox', ctx.body); if (box) box.outerHTML = fantasyBoxHTML(d.boxscore?.players || []); return; }
         const a = e.target.closest('[data-ath]'); if (a && a.dataset.ath && a.dataset.ath !== 'undefined') return openPlayer(lg, a.dataset.ath);
         const t = e.target.closest('[data-team]'); if (t) return openTeam(lg, t.dataset.team);
       };
-      if (st.state === 'in' && !ctx.timers.length) ctx.timers.push(setInterval(() => draw().catch(() => { }), 30000));
+      if (st.state === 'in' && !ctx.timers.length) ctx.timers.push(setInterval(() => { if (!document.hidden) draw().catch(() => { }); }, 15000));
     };
     await draw();
   });
