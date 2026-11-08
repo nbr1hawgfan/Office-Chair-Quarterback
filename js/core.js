@@ -198,7 +198,7 @@ const Prefs = {
     return i < 0;
   },
   setTheme(t) { const p = this.get(); p.theme = t; if (!this.isFav(t.lg, t.id)) p.favs.push(t); this.save(p); Theme.apply(t); this.changed(); },
-  changed() { if (typeof briefSync === 'function') briefSync(); if (typeof GameDay === 'object') GameDay.check(); }
+  changed() { if (typeof briefSync === 'function') briefSync(); if (typeof GameDay === 'object') GameDay.check(); if (typeof Alerts === 'object') Alerts.sync(); }
 };
 
 /* Team list per league, trimmed + cached 7 days */

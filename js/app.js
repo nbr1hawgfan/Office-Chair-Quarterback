@@ -114,6 +114,7 @@ function homeTilesHTML(p) {
   const tiles = [
     ['ffl', '🏈', 'Fantasy', ffl ? 'My league' : 'Connect league', 'hot'],
     ['watch', '📺', 'Watch Now', 'Games on TV now', 'hot'],
+    ['alerts', '🔔', 'Score Alerts', Alerts.on() ? 'On for this phone' : 'Scores · finals · kickoffs', Alerts.on() ? '' : 'hot'],
     ['links', '🔗', 'My Links', Links.all().length ? Links.all().length + ' saved' : 'Group chats · blogs', Links.all().length ? '' : 'hot'],
     ['pickem', '🏆', "Pick'em", pk ? 'Make picks' : 'Join league', 'hot'],
     ['rival', '⚔️', 'Office Rivalry', 'Board · trash talk', 'hot'],
@@ -140,7 +141,7 @@ function homeTilesHTML(p) {
   const m = new Date().getMonth(), inSeason = { surv: m >= 8 || m === 0, cfp: m >= 10 || m === 0, mm: m === 2 || m === 3, cws: m === 4 || m === 5, race: m >= 9 || m <= 2 };
   const seasonal = tiles.filter(t => t[0] in inSeason);
   seasonal.forEach(t => { if (!inSeason[t[0]]) t[4] = ''; });
-  const order = [...tiles.slice(0, 4), ...seasonal.filter(t => inSeason[t[0]]), ...tiles.slice(4).filter(t => !(t[0] in inSeason)), ...seasonal.filter(t => !inSeason[t[0]])];
+  const order = [...tiles.slice(0, 5), ...seasonal.filter(t => inSeason[t[0]]), ...tiles.slice(5).filter(t => !(t[0] in inSeason)), ...seasonal.filter(t => !inSeason[t[0]])];
   tiles.splice(0, tiles.length, ...order);
   return `<div class="tiles">${tiles.map(([k, ic, l, sub, kind]) => `<button class="tile ${kind || ''}" data-go="${k}">
     <span class="tile-ico">${kind === 'logo' ? img(ic, 'tile-logo') : ic}</span><b>${esc(l)}</b><small>${esc(sub)}</small></button>`).join('')}</div>`;
@@ -150,7 +151,7 @@ function runTile(k, p) {
   const map = {
     rival: () => openRivalry(), stats: () => openStats(), clips: () => openClipFeed(), brief: openBrief, ffl: openFantasy, pickem: openPickem, stand: openStandings, rank: openRankings, news: openNews, trivia: openTrivia,
     teams: () => openTeamPicker(), settings: openSettings,
-    weekend: openWeekend, watch: openWatchNow, links: () => openMyLinks(), surv: openSurvivor, cfp: openCFP, mm: openBracket, race: () => openRace(), awards: () => openAwards(), cws: () => openCWS(),
+    weekend: openWeekend, watch: openWatchNow, links: () => openMyLinks(), alerts: openAlerts, surv: openSurvivor, cfp: openCFP, mm: openBracket, race: () => openRace(), awards: () => openAwards(), cws: () => openCWS(),
     scores: () => App.go('scores'), players: () => App.go('players'), myteam: () => App.go('team'),
     pros: () => cf && openTeam(cf.lg, cf.id, 'pros'), recruit: () => cfb && openTeam('cfb', cfb.id, 'recruit')
   };
@@ -175,7 +176,11 @@ document.addEventListener('DOMContentLoaded', () => {
   GameDay.check();
   checkIn();
   Ticker.init();
+  setTimeout(() => MyFF.load().then(() => Alerts.sync()), 2500); // fantasy roster for the ⭐ flags, then keep alerts in step
   Sync.check();
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) { GameDay.check(); checkIn(); Sync.check(); } else if (_raw.get('syncDirty')) Sync.push(); });
+  // opened from a score alert: ?game=cfb:401234
+  const gl = new URLSearchParams(location.search).get('game');
+  if (gl) { history.replaceState(null, '', location.pathname); setTimeout(() => openGameLink(gl), 300); }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { GameDay.check(); checkIn(); Sync.check(); Alerts.sync(); } else if (_raw.get('syncDirty')) Sync.push(); });
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { });
 });

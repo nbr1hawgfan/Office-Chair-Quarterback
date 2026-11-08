@@ -192,6 +192,7 @@ function openSettings() {
           <label class="lbl">Your name<input class="search" id="sName" value="${esc(p.name || '')}" placeholder="First & last name"></label>
           <label class="lbl">Fan name<input class="search" id="sFan" value="${esc(p.fan || '')}" maxlength="24" placeholder="e.g. nbr1hawgfan"></label>
           <p class="hint">Pick'em & rivalry use your sign-in name${pickemCreds() ? `: <b>${esc(pickemCreds().name)}</b>` : ''}.</p></div>
+        <div class="card"><h4>🔔 Score alerts</h4><p class="hint">${Alerts.on() ? 'On for this phone.' : 'Off for this phone.'}</p><button class="btn ghost" id="sAlerts">${Alerts.on() ? 'Alert settings' : 'Turn on alerts'}</button></div>
         <div class="card"><h4>☁️ Backup & sync</h4>${Sync.ready()
           ? `<p class="hint">Your teams, colors and settings are saved to <b>${esc(pickemCreds().name)}</b>. Sign in with the same fan name and PIN on any phone or computer and everything comes with you. Last saved: <b id="sSyncAt">${esc(Sync.lastSavedText())}</b></p><p class="hint sync-err" id="sSyncErr">${Sync.lastError ? '⚠️ ' + esc(Sync.lastError) : ''}</p><button class="btn ghost" id="sSync">Sync now</button>`
           : `<p class="hint">Sign in with your fan name and PIN to back up your teams and use them on other devices.</p>`}</div>
@@ -216,6 +217,7 @@ function openSettings() {
       if (t.id === 'sAdd') return openTeamPicker();
       const lk = t.closest('[data-look]'); if (lk) { Look.set(lk.dataset.look); qsa('#sLook button', ctx.body).forEach(b => b.classList.toggle('on', b === lk)); return; }
       if (t.id === 'sBrief') return openBrief();
+      if (t.id === 'sAlerts') return openAlerts();
       if (t.id === 'sSync') {
         t.textContent = 'Syncing…'; t.disabled = true; Sync.lastError = '';
         // Newest change wins: if this device has unsaved changes, save them; otherwise bring down the latest saved copy
@@ -259,6 +261,7 @@ function renderMore(view) {
   const items = [
     ['🏆', 'Office Pick\'em', 'Weekly NFL + college picks & leaderboard', openPickem],
     ['🏈', 'Fantasy Football', 'Your ESPN league: matchups, standings, rosters', openFantasy],
+    ['🔔', 'Score Alerts', 'Phone notifications for your teams: kickoffs, scores, close games, finals, fantasy TDs', openAlerts],
     ['🔗', 'My Links', 'Your group chats, fan blogs & Discords — follows you to every device', () => openMyLinks()],
     ['▶️', 'Watch Now', 'Every game on TV now or soon, with official stream links', openWatchNow],
     ['📺', 'My Weekend', 'Your teams\' games through Monday, TV & spreads, add to calendar', openWeekend],

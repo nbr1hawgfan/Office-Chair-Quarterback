@@ -6,7 +6,10 @@ const CONFIG = {
   // Extra college teams always included in the office pick'em (by school name)
   PICKEM_EXTRA_SCHOOLS: ['Tulsa', 'Nebraska', 'Oklahoma State'],
   EBAY_CARD_CATEGORY: '212', // eBay "Sports Trading Cards"
-  BACKEND_VERSION: '2026-10-26' // gas/Code.gs version this app expects
+  BACKEND_VERSION: '2026-10-26',
+  // Score alerts (Supabase "Offsite WMS" project, ocq-* functions). The public key is safe to publish.
+  PUSH_URL: 'https://ulclsqwgyvrqjalrmfhr.supabase.co/functions/v1/ocq-subscribe',
+  PUSH_KEY: 'BPqlQBOLfUTylrGIeo53w4_ZPzatDoGbB8jLCGxmEdqPakOAIuVmLqo-2PvOnUlkZeBjd82gX4g8hQhDQbmkurQ' // gas/Code.gs version this app expects
 };
 
 const LEAGUES = {

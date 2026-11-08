@@ -116,13 +116,14 @@ function gcScore(p) { return p.awayScore != null && p.homeScore != null ? `${p.a
 function gcPlayRow(p, teams, opts = {}) {
   const t = teams[String(p.team?.id || p._team || '')];
   const typ = p.type?.text || '';
-  const cls = p.scoringPlay ? 'sc' : /interception|fumble|turnover|safety|blocked/i.test(typ + ' ' + p.text) ? 'to' : /penalty/i.test(typ) ? 'pen' : '';
+  const ff = opts.ff ? opts.ff(p.text) : null;
+  const cls = (ff ? 'ff ' : '') + (p.scoringPlay ? 'sc' : /interception|fumble|turnover|safety|blocked/i.test(typ + ' ' + p.text) ? 'to' : /penalty/i.test(typ) ? 'pen' : '');
   const meta = opts.fb ? (p.start?.downDistanceText || p.start?.shortDownDistanceText || '') : '';
   const yds = opts.fb && p.statYardage != null && !/kickoff|punt|extra point|field goal|timeout|end/i.test(typ) ? `<i class="gc-yds ${p.statYardage < 0 ? 'neg' : ''}">${p.statYardage > 0 ? '+' : ''}${p.statYardage}</i>` : '';
   return `<div class="gc-play ${cls} ${opts.isNew ? 'new' : ''}" data-pid="${esc(p.id || '')}">
     ${t ? img(t.logo, 'logo xs') : '<span class="logo xs ph"></span>'}
     <div><small>${[esc([opts.clock !== false ? [p.period?.number && opts.fb ? 'Q' + p.period.number : '', p.clock?.displayValue].filter(Boolean).join(' ') : '', meta].filter(Boolean).join(' · ')), p.scoringPlay && gcScore(p) ? `<b>${esc(gcScore(p))}</b>` : ''].filter(Boolean).join(' · ')}</small>
-      <p>${esc(p.text || typ)}</p>${opts.pitches ? `<div class="gc-pitches">${opts.pitches}</div>` : ''}</div>${yds}</div>`;
+      <p>${ff ? `<i class="ff-star" title="Your fantasy player: ${esc(ff.name)}">⭐</i>` : ''}${esc(p.text || typ)}</p>${opts.pitches ? `<div class="gc-pitches">${opts.pitches}</div>` : ''}</div>${yds}</div>`;
 }
 function footballPBP(d, teams, s) {
   const { list, curId } = gcDrives(d);
@@ -134,7 +135,7 @@ function footballPBP(d, teams, s) {
     const plays = [...(dr.plays || [])].reverse();
     return `<details class="gc-drive ${dr.isScore ? 'sc' : ''} ${isCur ? 'cur' : ''}" data-did="${esc(dr.id)}" ${open ? 'open' : ''}>
       <summary>${t ? img(t.logo, 'logo sm') : ''}<span><b>${esc(t?.ab || '')} · ${esc(res)}</b><small>${esc(dr.description || '')}${where ? ' · ' + esc(where) : ''}</small></span>${dr.isScore && plays[0] ? `<em>${esc(gcScore(plays[0]))}</em>` : ''}</summary>
-      ${plays.map(p => gcPlayRow({ ...p, _team: dr.team?.id }, teams, { fb: true, isNew: s.isNew(p) })).join('')}</details>`;
+      ${plays.map(p => gcPlayRow({ ...p, _team: dr.team?.id }, teams, { fb: true, isNew: s.isNew(p), ff: s.ff })).join('')}</details>`;
   }).join('');
 }
 function baseballPBP(d, teams, s) {
@@ -171,12 +172,14 @@ function gamecastHTML(lg, d, comp, away, home, s) {
   const panel = sport === 'fb' ? footballPanel(d, comp, teams, away, home, st) : sport === 'bb' ? baseballPanel(d, comp, teams, away, home, st) : otherPanel(d, comp, teams, away, home, st);
   const all = gcPlays(d, lg);
   const scoring = all.filter(p => p.scoringPlay);
+  const mine = s.ff ? all.filter(p => s.ff(p.text)) : [];
   let list;
-  if (s.filter === 'score') list = scoring.length ? `<div class="card">${[...scoring].reverse().map(p => gcPlayRow(p, teams, { fb: sport === 'fb', clock: sport !== 'bb', isNew: s.isNew(p) })).join('')}</div>` : emptyHTML('No scoring yet.');
+  if (s.filter === 'mine') list = mine.length ? `<div class="card">${[...mine].reverse().map(p => gcPlayRow(p, teams, { fb: true, isNew: s.isNew(p), ff: s.ff })).join('')}</div>` : emptyHTML('None of your fantasy players have touched the ball yet.');
+  else if (s.filter === 'score') list = scoring.length ? `<div class="card">${[...scoring].reverse().map(p => gcPlayRow(p, teams, { fb: sport === 'fb', clock: sport !== 'bb', isNew: s.isNew(p), ff: s.ff })).join('')}</div>` : emptyHTML('No scoring yet.');
   else list = sport === 'fb' ? footballPBP(d, teams, s) : sport === 'bb' ? baseballPBP(d, teams, s) : otherPBP(d, teams, s, lg);
   if (!list) list = emptyHTML(st.state === 'pre' ? 'Play-by-play starts at kickoff.' : 'ESPN hasn\'t posted play-by-play for this game.');
-  return `${panel}
-    <div class="gc-bar"><div class="seg small" id="gcF"><button data-gcf="all" class="${s.filter !== 'score' ? 'on' : ''}">All plays <small>${all.filter(p => !gcIsPitch(p) && !gcIsJunk(p)).length}</small></button><button data-gcf="score" class="${s.filter === 'score' ? 'on' : ''}">Scoring <small>${scoring.length}</small></button></div>
+  return `${panel}${s.ffHTML || ''}
+    <div class="gc-bar"><div class="seg small" id="gcF"><button data-gcf="all" class="${!['score', 'mine'].includes(s.filter) ? 'on' : ''}">All plays <small>${all.filter(p => !gcIsPitch(p) && !gcIsJunk(p)).length}</small></button><button data-gcf="score" class="${s.filter === 'score' ? 'on' : ''}">Scoring <small>${scoring.length}</small></button>${s.ff ? `<button data-gcf="mine" class="${s.filter === 'mine' ? 'on' : ''}">⭐ My guys <small>${mine.length}</small></button>` : ''}</div>
       ${sport === 'bb' && s.filter !== 'score' ? `<button class="pill ${s.pitches ? 'on' : ''}" data-gcp="1">⚾ Pitches</button>` : ''}
       ${st.state === 'in' ? '<span class="gc-upd"><i class="dot"></i>Live · updates every 15s</span>' : ''}</div>
     <div class="gc-pbp">${list}</div>

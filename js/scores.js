@@ -75,7 +75,7 @@ function gameCardHTML(ev, lg) {
   return `<button class="game ${live ? 'live' : ''} ${isFavGame ? 'fav' : ''}" data-ev="${ev.id}" data-lg="${lg}"${wm}>
     ${row(away)}${row(home)}
     <div class="g-meta"><span class="g-status">${live ? '<i class="dot"></i>' : ''}${esc(st.state === 'pre' ? fmtDay(ev.date) + ' · ' + fmtTime(ev.date) : st.shortDetail || st.detail || '')}</span>
-      <span>${esc(extra || (st.state === 'pre' ? [tv, odds].filter(Boolean).join(' · ') : tv))}${watchChipHTML(ev)}</span></div>
+      <span>${esc(extra || (st.state === 'pre' ? [tv, odds].filter(Boolean).join(' · ') : tv))}${watchChipHTML(ev)}${MyFF.tagHTML(lg, ev)}</span></div>
   </button>`;
 }
 
@@ -158,6 +158,7 @@ async function renderScores(view) {
 
 /* ---------- Game center ---------- */
 function openGame(lg, eventId) {
+  if (lg === 'nfl') MyFF.load();
   Sheets.open('Game Center', async ctx => {
     const L = LEAGUES[lg];
     let seriesHTML = null, lastD = null;
@@ -185,6 +186,10 @@ function openGame(lg, eventId) {
       const hasCast = st.state === 'in' || (d.plays || []).length || (d.drives?.previous || []).length;
       if (!gc.tab) gc.tab = st.state === 'in' && hasCast ? 'cast' : 'sum';
       if (hasCast) html += `<div class="seg gc-tabs"><button data-gct="sum" class="${gc.tab === 'sum' ? 'on' : ''}">📊 Summary</button><button data-gct="cast" class="${gc.tab === 'cast' ? 'on' : ''}">📡 GameCast${st.state === 'in' ? ' <i class="dot"></i>' : ''}</button></div>`;
+      const ffHTML = lg === 'nfl' ? MyFF.gameCardHTML(lg, { competitions: [comp] }, d.boxscore?.players) : '';
+      gc.ff = ffHTML ? MyFF.matcher() : null; gc.ffHTML = ffHTML;
+      ctx.act.innerHTML = '<button class="icon-btn" id="gcShare" title="Share this game">📤</button>';
+      qs('#gcShare', ctx.act).onclick = () => ShareCard.share(ShareCard.fromGame(lg, comp, away, home));
       if (hasCast && gc.tab === 'cast') {
         html += gamecastHTML(lg, d, comp, away, home, gc);
       } else {
@@ -196,6 +201,7 @@ function openGame(lg, eventId) {
       if (info.length) html += `<div class="gc-info">${info.map(i => `<span>${esc(i)}</span>`).join('')}</div>`;
       html += watchCardHTML({ competitions: [comp], status: comp.status, date: comp.date });
       html += linkPillsHTML(Links.forGame(lg, cs), '🔗 Your links for this game');
+      html += ffHTML;
       const gclips = clipsFrom(d, { lg, ev: eventId });
       if (gclips.length) html += `<div class="card"><h4>🎬 Highlights</h4>${clipRowHTML(gclips, 'g' + eventId)}</div>`;
       if (lg === 'cfb' && gasUrl()) html += `<div id="gcSeries">${seriesHTML || ''}</div>`;
@@ -261,7 +267,19 @@ function openGame(lg, eventId) {
 
 /* Fantasy points from an NFL box score (PPR / Half / Standard) */
 function fantasyBoxHTML(bp) {
-  const mode = LS.get('fflScoring', 'ppr'), recPts = { ppr: 1, half: 0.5, std: 0 }[mode];
+  const mode = LS.get('fflScoring', 'ppr');
+  const players = fantasyPointsFrom(bp);
+  const top = Object.values(players).filter(p => p.pts).sort((a, b) => b.pts - a.pts).slice(0, 15);
+  if (!top.length) return '';
+  return `<div class="card" id="fbox"><h4>Fantasy Points</h4>
+    <div class="seg small">${[['ppr', 'PPR'], ['half', 'Half PPR'], ['std', 'Standard']].map(([k, l]) => `<button data-fs="${k}" class="${k === mode ? 'on' : ''}">${l}</button>`).join('')}</div>
+    ${top.map((p, i) => `<button class="fp-row" data-ath="${p.id}"><b class="fp-rk">${i + 1}</b>${img(p.logo, 'logo xs')}<span><b>${esc(p.name)}</b><small>${esc(p.line.join(' · '))}</small></span><b class="fp-pts">${p.pts.toFixed(1)}</b></button>`).join('')}
+    <p class="src">Calculated from the box score; your league's scoring may differ slightly.</p></div>`;
+}
+
+/* Fantasy points per athlete id from a box score (shared by the Fantasy Points card and "Your fantasy players") */
+function fantasyPointsFrom(bp) {
+  const recPts = { ppr: 1, half: 0.5, std: 0 }[LS.get('fflScoring', 'ppr')];
   const players = {};
   bp.forEach(tp => (tp.statistics || []).forEach(cat => {
     const L = (cat.labels || []).map(x => x.toUpperCase());
@@ -276,10 +294,5 @@ function fantasyBoxHTML(bp) {
       if (cat.name === 'kicking') { const k = col(a, 'PTS'); p.pts += k; p.line.push(`${a.stats[L.indexOf('FG')] || ''} FG`); }
     });
   }));
-  const top = Object.values(players).filter(p => p.pts).sort((a, b) => b.pts - a.pts).slice(0, 15);
-  if (!top.length) return '';
-  return `<div class="card" id="fbox"><h4>Fantasy Points</h4>
-    <div class="seg small">${[['ppr', 'PPR'], ['half', 'Half PPR'], ['std', 'Standard']].map(([k, l]) => `<button data-fs="${k}" class="${k === mode ? 'on' : ''}">${l}</button>`).join('')}</div>
-    ${top.map((p, i) => `<button class="fp-row" data-ath="${p.id}"><b class="fp-rk">${i + 1}</b>${img(p.logo, 'logo xs')}<span><b>${esc(p.name)}</b><small>${esc(p.line.join(' · '))}</small></span><b class="fp-pts">${p.pts.toFixed(1)}</b></button>`).join('')}
-    <p class="src">Calculated from the box score; your league's scoring may differ slightly.</p></div>`;
+  return players;
 }

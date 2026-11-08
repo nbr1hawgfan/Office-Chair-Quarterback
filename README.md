@@ -24,6 +24,9 @@ Sports-only PWA for the office. Dark, mobile-first, static files on GitHub Pages
 - **Past standings** 📅 — Standings has a season picker: any of the last 30 seasons' final standings for every league (as far back as ESPN has them).
 - **🏆 Titles tab** on team pages — NFL/NBA/MLB/NHL: every division title (and NFL playoff trip) in ESPN's past standings with the current drought ("Last division title: 2002 · 23 seasons ago"). College football: conference championship game wins and bowl/CFP games. Built once per league by the backend (about a minute the first time), then instant.
 - **📡 GameCast** — a tab in the Game Center: live field graphic (ball spot, first-down line, possession, red zone, timeouts) for football, a diamond with runners, count and batter vs pitcher for baseball/softball, last play + win-probability bar for everything; full play-by-play grouped by drive / inning / period, newest first, with an All / Scoring filter and optional pitch-by-pitch. Live games refresh every 15 seconds, new plays flash, and open drives and your scroll position stay put.
+- **🔔 Score Alerts** — real phone notifications, no extra app: starting soon (15 min), every score (football/hockey/baseball/softball, with the scoring play for football), close & late, finals, and ⭐ when your ESPN fantasy player scores. Each person picks which kinds. iPhone needs the app on the Home Screen (iOS 16.4+). Tapping an alert opens that game's Game Center.
+- **📤 Share cards** — share button in the Game Center makes a square team-color image of the score (or upcoming matchup) to text or post.
+- **⭐ My fantasy guys** — with your ESPN fantasy team marked, NFL score cards / Watch Now / My Weekend show which of your players are in each game, the Game Center shows their live fantasy points, and GameCast stars their plays (plus a ⭐ My guys filter).
 - Seasonal tiles (Survivor, CFP, Bracket, World Series, Conference Race) move to the front of the home screen when they're in season.
 
 ## Deploy the app (GitHub Pages)
@@ -48,6 +51,14 @@ Survivor, the Bracket Challenge, the Award Watch vote, settings sync and the Tit
 1. Paste the new `gas/Code.gs` over the old one in Apps Script.
 2. **Deploy → Manage deployments → edit → New version** (same URL).
 The `Survivor`, `Bracket` and `Votes` sheet tabs create themselves the first time someone uses them. Everyone uses the same sign-in as Pick'em.
+
+## Score alerts server (Supabase)
+Alerts run in the **Offsite WMS** Supabase project, fully separate from the WMS data:
+- Tables `ocq_push_subs`, `ocq_game_state`, `ocq_config` (row security on, no public access — only the functions use them).
+- Edge functions `ocq-subscribe` (phones sign up / change settings / test) and `ocq-alerts` (checks ESPN and sends) — source in `supabase/functions/`.
+- A `pg_cron` job (`ocq-score-alerts`) calls `ocq-alerts` every minute; `ocq-net-cleanup` trims the request log nightly.
+- Signing keys live in `ocq_config`; the public key is also in `js/config.js` (`PUSH_KEY`). Don't change one without the other, or every phone has to turn alerts back on.
+- To pause all alerts: `select cron.unschedule('ocq-score-alerts');` in the SQL editor.
 
 ## Notes
 - Scores/stats come from ESPN's free public feeds — no keys. They're unofficial, so ESPN can change them; if a section goes blank, that's usually why.
