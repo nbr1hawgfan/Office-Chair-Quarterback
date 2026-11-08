@@ -233,14 +233,15 @@ Deno.serve(async (req) => {
   // send (one message per phone per alert)
   let sent = 0, gone = 0;
   const failed = new Map<string, number>();
+  const errs = new Map<string, string>();
   await Promise.all(out.map(async ({ s, msg }) => {
-    try { await webpush.sendNotification(s.sub, JSON.stringify(msg), { TTL: 900, urgency: "high", topic: String(msg.tag).replace(/[^\w-]/g, "").slice(0, 32) }); sent++; }
+    try { await webpush.sendNotification(s.sub, JSON.stringify(msg), { TTL: 900, urgency: "high" }); sent++; }
     catch (e: any) {
       if (e?.statusCode === 404 || e?.statusCode === 410) { gone++; await db.from("ocq_push_subs").delete().eq("endpoint", s.endpoint); }
-      else failed.set(s.endpoint, (s.fails || 0) + 1);
+      else { failed.set(s.endpoint, (s.fails || 0) + 1); errs.set(s.endpoint, `${e?.statusCode || ""} ${String(e?.body || e?.message || e).slice(0, 300)}`.trim()); }
     }
   }));
-  for (const [endpoint, fails] of failed) await db.from("ocq_push_subs").update({ fails }).eq("endpoint", endpoint);
+  for (const [endpoint, fails] of failed) await db.from("ocq_push_subs").update({ fails, last_error: errs.get(endpoint) || null }).eq("endpoint", endpoint);
   if (sent) await db.from("ocq_push_subs").update({ last_sent: new Date().toISOString(), fails: 0 }).in("endpoint", [...new Set(out.map((o) => o.s.endpoint))].filter((e) => !failed.has(e)));
   // housekeeping: forget games older than 4 days
   if (new Date().getMinutes() === 0) await db.from("ocq_game_state").delete().lt("updated_at", new Date(now - 4 * 864e5).toISOString());

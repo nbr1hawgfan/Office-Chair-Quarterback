@@ -56,7 +56,14 @@ Deno.serve(async (req) => {
       if (!data) throw new Error("Not subscribed");
       const c = await cfg();
       webpush.setVapidDetails(c.vapid_subject, c.vapid_public, c.vapid_private);
-      await webpush.sendNotification(data.sub, JSON.stringify({ title: "🔔 Alerts are on!", body: "This is what a score alert looks like. Go team! 🏈", tag: "ocq-test", path: "" }), { TTL: 600, urgency: "high" });
+      try {
+        await webpush.sendNotification(data.sub, JSON.stringify({ title: "🔔 Alerts are on!", body: "This is what a score alert looks like. Go team! 🏈", tag: "ocq-test", path: "" }), { TTL: 600, urgency: "high" });
+      } catch (e: any) {
+        const why = `${e?.statusCode || ""} ${String(e?.body || e?.message || e).slice(0, 300)}`.trim();
+        await db.from("ocq_push_subs").update({ last_error: why }).eq("endpoint", String(b.endpoint || ""));
+        throw new Error("Push service said: " + why);
+      }
+      await db.from("ocq_push_subs").update({ last_error: null, fails: 0 }).eq("endpoint", String(b.endpoint || ""));
       return json({ ok: true });
     }
     return json({ error: "Unknown action" }, 400);
