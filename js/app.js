@@ -181,6 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // opened from a score alert: ?game=cfb:401234
   const gl = new URLSearchParams(location.search).get('game');
   if (gl) { history.replaceState(null, '', location.pathname); setTimeout(() => openGameLink(gl), 300); }
+  else if (new URLSearchParams(location.search).get('ffl')) { history.replaceState(null, '', location.pathname); setTimeout(openFantasy, 300); }
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { GameDay.check(); checkIn(); Sync.check(); Alerts.sync(); } else if (_raw.get('syncDirty')) Sync.push(); });
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { });
 });

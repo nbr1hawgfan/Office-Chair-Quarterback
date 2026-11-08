@@ -135,7 +135,7 @@ async function fflRosters(body) {
       <button class="pill" id="fMine">${mine ? '★ My team' : '☆ This is my team'}</button>
       <div class="ln-list">${fflLineupHTML(t.roster?.entries, week)}</div>`;
     qs('#fT', body).onchange = e => { sel = e.target.value; draw(); };
-    qs('#fMine', body).onclick = () => { const c = fflCfg(); c.teamId = t.id; LS.set('ffl', c); toast('Saved as your team'); MyFF.load(true); draw(); };
+    qs('#fMine', body).onclick = () => { const c = fflCfg(); c.teamId = t.id; LS.set('ffl', c); toast('Saved as your team'); MyFF.load(true).then(() => Alerts.sync()); draw(); };
   };
   draw();
   body.onclick = e => { const b = e.target.closest('[data-ath]'); if (b) openPlayer('nfl', b.dataset.ath); };

@@ -14,7 +14,8 @@ const WEEKLY = ["nfl", "cfb"];
 const SCORE_ALERTS = ["nfl", "cfb", "nhl", "mlb", "cbase", "soft"]; // basketball scores too often — close/final only
 const START_WORD: Record<string, string> = { nfl: "Kickoff", cfb: "Kickoff", nhl: "Puck drop", mlb: "First pitch", cbase: "First pitch", soft: "First pitch" };
 
-type Sub = { endpoint: string; sub: any; teams: string[]; prefs: Record<string, boolean>; ffl: { id: string; first: string; last: string; pro: number }[]; fails: number };
+type Sub = { endpoint: string; sub: any; teams: string[]; prefs: Record<string, any>; ffl: { id: string; first: string; last: string; pro: number }[]; fails: number;
+  ffl_league?: { leagueId: string; season: string; teamId: string; relay: string } | null; ffl_state?: any };
 
 const chicago = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Chicago", year: "numeric", month: "2-digit", day: "2-digit" }).format(d).replace(/-/g, "");
 const chiHour = () => Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/Chicago", hour: "numeric", hour12: false }).format(new Date()));
@@ -46,10 +47,12 @@ Deno.serve(async (req) => {
   if (req.headers.get("x-ocq-cron") !== cfg.cron_token) return new Response("forbidden", { status: 403 });
   webpush.setVapidDetails(cfg.vapid_subject, cfg.vapid_public, cfg.vapid_private);
 
-  const subs: Sub[] = ((await db.from("ocq_push_subs").select("endpoint,sub,teams,prefs,ffl,fails").lt("fails", 5)).data || []) as Sub[];
+  const subs: Sub[] = ((await db.from("ocq_push_subs").select("endpoint,sub,teams,prefs,ffl,fails,ffl_league,ffl_state").lt("fails", 5)).data || []) as Sub[];
   if (!subs.length) return Response.json({ ok: true, subs: 0 });
   const leagues = new Set<string>();
-  subs.forEach((s) => { (s.teams || []).forEach((t) => leagues.add(t.split(":")[0])); if ((s.ffl || []).length && s.prefs?.ffl !== false) leagues.add("nfl"); });
+  const wantsMatchup = (s: Sub) => !!s.ffl_league && (s.prefs?.fflm ?? "30") !== "off";
+  subs.forEach((s) => { (s.teams || []).forEach((t) => leagues.add(t.split(":")[0])); if (((s.ffl || []).length && s.prefs?.ffl !== false) || wantsMatchup(s)) leagues.add("nfl"); });
+  let nflEvents: any[] | null = null;
 
   const out: { s: Sub; msg: any }[] = [];
   const log: string[] = [];
@@ -58,6 +61,7 @@ Deno.serve(async (req) => {
     if (!PATH[lg]) continue;
     let events: any[] = [];
     try { events = await scoreboard(lg); } catch (e) { log.push(`${lg}: ${e}`); continue; }
+    if (lg === "nfl") nflEvents = events;
     const followers = (id: string) => subs.filter((s) => (s.teams || []).includes(`${lg}:${id}`));
     const fflSubs = (ids: string[]) => lg === "nfl" ? subs.filter((s) => s.prefs?.ffl !== false && (s.ffl || []).some((p) => ids.includes(String(p.pro)))) : [];
     const relevant = events.filter((ev) => {
@@ -143,6 +147,87 @@ Deno.serve(async (req) => {
       upserts.push({ lg, event_id: String(ev.id), state, away_id: aId, home_id: hId, away_score: aS, home_score: hS, start_at: new Date(ev.date).toISOString(), notified, updated_at: new Date().toISOString() });
     }
     if (upserts.length) await db.from("ocq_game_state").upsert(upserts);
+  }
+
+  // ---------- fantasy matchup updates (one notification per phone that updates in place) ----------
+  const mSubs = subs.filter(wantsMatchup);
+  if (mSubs.length && nflEvents && nflEvents.length) {
+    const st = (e: any) => e.competitions?.[0]?.status?.type?.state || e.status?.type?.state;
+    const live = nflEvents.filter((e) => st(e) === "in");
+    const proState = new Map<string, string>(); // NFL team id -> pre/in/post this week
+    nflEvents.forEach((e) => (e.competitions?.[0]?.competitors || []).forEach((c: any) => proState.set(String(c.id || c.team?.id), st(e))));
+    const weekDone = nflEvents.every((e) => st(e) === "post");
+    const byLeague = new Map<string, Sub[]>();
+    mSubs.forEach((s) => { const k = `${s.ffl_league!.season}:${s.ffl_league!.leagueId}`; byLeague.set(k, [...(byLeague.get(k) || []), s]); });
+    for (const [, list] of byLeague) {
+      const L = list[0].ffl_league!;
+      // only work while games are on, right after a slate ends, or once at the end of the week
+      const anyLiveState = list.some((s) => s.ffl_state?.live);
+      if (!live.length && !anyLiveState && !(weekDone && list.some((s) => !s.ffl_state?.finalSent))) continue;
+      const fetchLeague = async (views: string[], week?: number) => {
+        const q = views.map((v) => "view=" + v).join("&") + (week ? "&scoringPeriodId=" + week : "");
+        const direct = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${L.season}/segments/0/leagues/${L.leagueId}?${q}`;
+        const r = await fetch(direct, { headers: { "User-Agent": "Mozilla/5.0 (OfficeChairQB alerts)" } });
+        if (r.ok) return r.json();
+        const relay = list.find((s) => s.ffl_league?.relay)?.ffl_league?.relay;
+        if ((r.status === 401 || r.status === 403) && relay) {
+          const u = `${relay}?` + new URLSearchParams({ action: "fantasy", leagueId: L.leagueId, season: L.season, views: views.join(","), week: week ? String(week) : "" });
+          const d = await (await fetch(u, { redirect: "follow" })).json();
+          if (d.error) throw new Error(d.error);
+          return d;
+        }
+        throw new Error("ESPN Fantasy " + r.status);
+      };
+      let base: any, d: any;
+      try {
+        base = await fetchLeague(["mStatus", "mSettings"]);
+        const sp = base.scoringPeriodId || base.status?.latestScoringPeriod;
+        d = await fetchLeague(["mMatchupScore", "mScoreboard", "mTeam"], sp);
+      } catch (e) { log.push(`ffl ${L.leagueId}: ${e}`); continue; }
+      const period = base.status?.currentMatchupPeriod || base.scoringPeriodId;
+      const teams = new Map((d.teams || []).map((t: any) => [String(t.id), t]));
+      const tName = (id: string) => { const t: any = teams.get(id) || {}; return t.name || `${t.location || ""} ${t.nickname || ""}`.trim() || t.abbrev || "Opponent"; };
+      for (const s of list) {
+        const me = String(s.ffl_league!.teamId);
+        const m = (d.schedule || []).find((x: any) => x.matchupPeriodId === period && [x.home?.teamId, x.away?.teamId].map(String).includes(me));
+        if (!m) continue;
+        const mine = String(m.home?.teamId) === me ? m.home : m.away, opp = mine === m.home ? m.away : m.home;
+        if (!opp) continue; // bye week
+        const pts = (x: any) => Math.round(Number(x?.totalPointsLive ?? x?.totalPoints ?? 0) * 10) / 10;
+        const proj = (x: any) => x?.totalProjectedPointsLive != null ? Math.round(Number(x.totalProjectedPointsLive) * 10) / 10 : null;
+        const left = (x: any) => (x?.rosterForCurrentScoringPeriod?.entries || []).filter((e: any) => ![20, 21].includes(e.lineupSlotId) && ["pre", "in"].includes(proState.get(String(e.playerPoolEntry?.player?.proTeamId)) || "")).length;
+        const my = pts(mine), op = pts(opp), oppName = tName(String(opp.teamId)), myName = tName(me);
+        const prev = s.ffl_state && s.ffl_state.period === `${L.season}-${period}` ? s.ffl_state : { period: `${L.season}-${period}` };
+        const lead = my > op ? 1 : my < op ? -1 : 0;
+        const fmt = (n: number) => n.toFixed(1);
+        const diff = Math.abs(my - op);
+        const pj = proj(mine) != null && proj(opp) != null ? ` · proj ${fmt(proj(mine)!)}–${fmt(proj(opp)!)}` : "";
+        const lf = left(mine), lo = left(opp);
+        const leftTxt = mine?.rosterForCurrentScoringPeriod ? ` · players left: you ${lf}, them ${lo}` : "";
+        const body = `${lead > 0 ? `You're up ${fmt(diff)}` : lead < 0 ? `You're down ${fmt(diff)}` : "All tied"}${pj}${leftTxt}`;
+        const title = `🏈 ${myName} ${fmt(my)} – ${fmt(op)} ${oppName}`;
+        const freq = String(s.prefs?.fflm ?? "30");
+        const mins = (Date.now() - (prev.at || 0)) / 60e3;
+        const changed = Math.abs(my - (prev.my ?? my)) >= 0.5 || Math.abs(op - (prev.op ?? op)) >= 0.5;
+        let msg: any = null;
+        if (weekDone && !prev.finalSent && (my || op)) {
+          msg = { title: lead > 0 ? `🏆 You won! ${fmt(my)} – ${fmt(op)}` : lead < 0 ? `😞 Tough week: ${fmt(my)} – ${fmt(op)}` : `🤝 Tie: ${fmt(my)} – ${fmt(op)}`, body: `${myName} vs ${oppName} is final.` };
+          prev.finalSent = 1;
+        } else if (live.length && prev.lead != null && lead !== 0 && lead !== prev.lead && (my || op)) {
+          msg = { title: lead > 0 ? `🔥 You took the lead! ${fmt(my)} – ${fmt(op)}` : `😬 ${oppName} took the lead, ${fmt(op)} – ${fmt(my)}`, body };
+        } else if (live.length && freq !== "lead" && changed && mins >= Number(freq) - 0.5) {
+          msg = { title, body };
+        } else if (!live.length && prev.live && changed) {
+          msg = { title: `📋 Games are done for now: ${fmt(my)} – ${fmt(op)}`, body: `${myName} vs ${oppName}${body ? " · " + body : ""}` };
+        }
+        const next = { ...prev, lead: lead || prev.lead || 0, live: live.length > 0 };
+        if (msg) {
+          out.push({ s, msg: { ...msg, path: "?ffl=1", tag: "ffl-matchup" } });
+          Object.assign(next, { my, op, at: Date.now() });
+        } else if (prev.my == null) Object.assign(next, { my, op, at: Date.now() }); // first look: baseline, no alert
+        await db.from("ocq_push_subs").update({ ffl_state: next }).eq("endpoint", s.endpoint);
+      }
+    }
   }
 
   // send (one message per phone per alert)

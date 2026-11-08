@@ -29,14 +29,23 @@ Deno.serve(async (req) => {
       const sub = cleanSub(b.sub);
       const teams = (Array.isArray(b.teams) ? b.teams : []).map(String).filter((t: string) => /^[a-z]+:\d+$/.test(t) && LEAGUES.includes(t.split(":")[0])).slice(0, 40);
       const p = b.prefs || {};
-      const prefs = { kick: p.kick !== false, score: p.score !== false, close: p.close !== false, final: p.final !== false, ffl: p.ffl !== false };
+      const prefs = { kick: p.kick !== false, score: p.score !== false, close: p.close !== false, final: p.final !== false, ffl: p.ffl !== false,
+        fflm: ["off", "lead", "15", "30", "60"].includes(String(p.fflm)) ? String(p.fflm) : "30" };
+      // fantasy league for matchup updates; private leagues are read through the office Apps Script relay
+      const L = b.league || null;
+      let league = null;
+      if (L && /^\d{1,12}$/.test(String(L.leagueId)) && /^\d{4}$/.test(String(L.season)) && /^\d{1,4}$/.test(String(L.teamId))) {
+        let relay = "";
+        try { const u = new URL(String(L.relay || "")); if (u.protocol === "https:" && u.hostname === "script.google.com" && u.pathname.startsWith("/macros/s/")) relay = u.origin + u.pathname; } catch (_) { /* no relay */ }
+        league = { leagueId: String(L.leagueId), season: String(L.season), teamId: String(L.teamId), relay };
+      }
       const ffl = (Array.isArray(b.ffl) ? b.ffl : []).slice(0, 30).map((x: any) => ({ id: String(x.id || "").slice(0, 20), first: String(x.first || "").slice(0, 30), last: String(x.last || "").slice(0, 40), pro: Number(x.pro) || 0 }))
         .filter((x: any) => x.last && x.pro);
       const { count } = await db.from("ocq_push_subs").select("endpoint", { count: "exact", head: true });
       if ((count || 0) > 1500) throw new Error("Alert list is full");
-      const { error } = await db.from("ocq_push_subs").upsert({ endpoint: sub.endpoint, sub, teams, prefs, ffl, fan: String(b.fan || "").slice(0, 40), fails: 0, updated_at: new Date().toISOString() });
+      const { error } = await db.from("ocq_push_subs").upsert({ endpoint: sub.endpoint, sub, teams, prefs, ffl, ffl_league: league, fan: String(b.fan || "").slice(0, 40), fails: 0, updated_at: new Date().toISOString() });
       if (error) throw error;
-      return json({ ok: true, teams: teams.length, ffl: ffl.length });
+      return json({ ok: true, teams: teams.length, ffl: ffl.length, league: !!league });
     }
     if (b.action === "unsubscribe") {
       await db.from("ocq_push_subs").delete().eq("endpoint", String(b.endpoint || ""));
