@@ -970,3 +970,33 @@ html.light .ff-tag{color:#8a6d00;background:rgba(255,200,0,.18)}
 .st-h{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .st-share{width:34px;height:34px;font-size:15px;flex:none}
 #stView{margin:8px 0}
+
+/* Fantasy win probability + live players */
+.fm-wp{display:flex;align-items:center;gap:8px;padding:2px 0;font-size:11px;font-weight:800;color:var(--mut)}
+.fm-wp div{flex:1;height:6px;border-radius:3px;background:var(--bg2);overflow:hidden}
+.fm-wp i{display:block;height:100%;background:var(--a)}
+.fw-card{padding:12px 14px}
+.fw-bar{display:flex;align-items:center;gap:10px}
+.fw-bar span{display:flex;flex-direction:column;font-size:11px;max-width:30%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--mut)}
+.fw-bar span.r{text-align:right;align-items:flex-end}
+.fw-bar b{font-family:Oswald,Inter,sans-serif;font-size:26px;color:var(--txt);line-height:1.1}
+.fw-track{flex:1;height:12px;border-radius:6px;background:#888;overflow:hidden}
+.fw-track i{display:block;height:100%;background:var(--a);transition:width .6s ease}
+.fw-sub{display:flex;justify-content:space-between;gap:10px;font-size:10px;color:var(--mut);margin:6px 0 4px}
+.fw-sub span:last-child{text-align:right}
+.wp-chart{width:100%;height:auto;display:block;margin-top:8px}
+.wp-mid{stroke:var(--mut);stroke-dasharray:4 4;stroke-width:1}
+.wp-day{stroke:var(--line);stroke-width:1}
+.wp-line{stroke:var(--txt);stroke-width:2.5;stroke-linejoin:round}
+.wp-dot{fill:var(--txt)}
+.wp-lbl{fill:var(--mut);font-size:11px;font-weight:700}
+.fw-live h4 .dot{margin-right:4px}
+.fw-row{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:8px 4px;border-bottom:1px solid var(--line)}
+.fw-row:last-child{border:0}
+.fw-row.a{box-shadow:inset 3px 0 0 var(--a)}.fw-row.b{box-shadow:inset 3px 0 0 #888}
+.fw-row>span:first-of-type{flex:1;min-width:0;display:flex;flex-direction:column}
+.fw-row b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fw-row small{font-size:11px;color:var(--mut)}
+.fw-game{color:var(--txt)!important}
+.fw-pts{text-align:right;display:flex;flex-direction:column}.fw-pts b{font-family:Oswald,Inter,sans-serif;font-size:20px}
+.ln-game{color:var(--mut)}.ln-game.live{color:var(--live);font-weight:700}

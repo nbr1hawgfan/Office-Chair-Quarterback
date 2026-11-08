@@ -79,14 +79,20 @@ async function fflMatchups(body, week) {
   };
   body.innerHTML = `<div class="nav-row"><button class="icon-btn" data-w="${week - 1}">‹</button><span>${esc(base.settings?.name || '')} · Week ${week}${week === cur ? ' (now)' : ''}</span><button class="icon-btn" data-w="${week + 1}">›</button></div>
     ${!myId ? '<p class="hint">Tip: open Rosters and tap “This is my team” to highlight yours.</p>' : ''}
-    <div class="fm-list">${games.map(m => `<button class="fm-card" data-m="${m.id}">${side(m.away)}${side(m.home)}</button>`).join('') || emptyHTML('No matchups this week.')}</div>`;
+    <div class="fm-list">${games.map(m => {
+      let wp = '';
+      if (m.away && m.home && (week === cur || m.winner === 'UNDECIDED')) {
+        const p = Math.round(teamWinProb(m.away, m.home) * 100);
+        wp = `<div class="fm-wp" title="Win probability"><small>${p}%</small><div><i style="width:${p}%"></i></div><small>${100 - p}%</small></div>`;
+      }
+      return `<button class="fm-card" data-m="${m.id}">${side(m.away)}${wp}${side(m.home)}</button>`; }).join('') || emptyHTML('No matchups this week.')}</div>`;
   body.onclick = e => {
     const w = e.target.closest('[data-w]'); if (w) { const n = Number(w.dataset.w); if (n >= 1) { body.innerHTML = loadingHTML(); fflMatchups(body, n).catch(er => body.innerHTML = errHTML(er)); } return; }
     const c = e.target.closest('[data-m]'); if (c) { const m = games.find(x => String(x.id) === c.dataset.m); if (m) fflMatchupSheet(m, teams, week); }
   };
 }
 
-function fflLineupHTML(entries, week) {
+function fflLineupHTML(entries, week, games, gameTxt) {
   const rows = [...(entries || [])].sort((a, b) => FFL_SLOT_ORDER.indexOf(a.lineupSlotId) - FFL_SLOT_ORDER.indexOf(b.lineupSlotId));
   return rows.map(e => {
     const p = e.playerPoolEntry?.player || {}, pts = fflPts(e, week, 0), proj = fflPts(e, week, 1);
@@ -94,7 +100,7 @@ function fflLineupHTML(entries, week) {
     const inj = p.injuryStatus && p.injuryStatus !== 'ACTIVE' ? p.injuryStatus.replace('_', ' ') : '';
     const hs = p.id > 0 ? `https://a.espncdn.com/i/headshots/nfl/players/full/${p.id}.png` : '';
     return `<button class="ln-row ${bench ? 'bench' : ''}" ${p.id > 0 ? `data-ath="${p.id}"` : ''}><i class="slot">${FFL_SLOTS[e.lineupSlotId] || ''}</i>${img(hs, 'hs sm')}
-      <span><b>${esc(p.fullName || '')}</b><small>${esc(FFL_POS[p.defaultPositionId] || '')} · ${esc(FFL_PRO[p.proTeamId] || 'FA')}${inj ? ` · <i class="inj">${esc(inj)}</i>` : ''}</small></span>
+      <span><b>${esc(p.fullName || '')}</b><small>${esc(FFL_POS[p.defaultPositionId] || '')} · ${esc(FFL_PRO[p.proTeamId] || 'FA')}${inj ? ` · <i class="inj">${esc(inj)}</i>` : ''}</small>${games && gameTxt ? (() => { const g = games.get(Number(p.proTeamId)); return `<small class="ln-game ${g?.state === 'in' ? 'live' : ''}">${g?.state === 'in' ? '<i class="dot"></i>' : ''}${esc(gameTxt({ g }))}</small>`; })() : ''}</span>
       <span class="ln-pts"><b>${pts != null ? Number(pts).toFixed(1) : '–'}</b><small>${proj != null ? Number(proj).toFixed(1) : ''}</small></span></button>`;
   }).join('');
 }
@@ -102,13 +108,33 @@ function fflLineupHTML(entries, week) {
 function fflMatchupSheet(m, teams, week) {
   const a = teams[m.away?.teamId] || {}, h = teams[m.home?.teamId] || {};
   Sheets.open(`${fflTeamName(a)} vs ${fflTeamName(h)}`, async ctx => {
-    let ma = m.away?.rosterForCurrentScoringPeriod?.entries, mh = m.home?.rosterForCurrentScoringPeriod?.entries;
-    if (!ma || !mh) { const d = await fflFetch(['mRoster', 'mTeam'], week); const t = {}; (d.teams || []).forEach(x => t[x.id] = x); ma = ma || t[a.id]?.roster?.entries; mh = mh || t[h.id]?.roster?.entries; }
-    const pts = s => Number(s?.totalPointsLive ?? s?.totalPoints ?? 0).toFixed(1);
-    ctx.body.innerHTML = `<div class="fm-head">${img(a.logo, 'logo lg')}<b>${pts(m.away)}</b><span>–</span><b>${pts(m.home)}</b>${img(h.logo, 'logo lg')}</div>
-      <div class="ln-cols"><div><h4>${esc(fflTeamName(a))}</h4>${fflLineupHTML(ma, week)}</div><div><h4>${esc(fflTeamName(h))}</h4>${fflLineupHTML(mh, week)}</div></div>
-      <p class="src">Big number = points, small = ESPN projection.</p>`;
-    ctx.body.onclick = e => { const b = e.target.closest('[data-ath]'); if (b) openPlayer('nfl', b.dataset.ath); };
+    const myId = String(fflCfg()?.teamId ?? '');
+    const mine = String(m.away?.teamId) === myId ? 'a' : String(m.home?.teamId) === myId ? 'b' : '';
+    const draw = async (fresh) => {
+      if (fresh) { // live refresh: pull the latest matchup scores
+        const d = await fflFetch(['mMatchupScore', 'mScoreboard', 'mTeam'], week).catch(() => null);
+        const nm = d && (d.schedule || []).find(x => String(x.id) === String(m.id)); if (nm) m = nm;
+      }
+      let ma = m.away?.rosterForCurrentScoringPeriod?.entries, mh = m.home?.rosterForCurrentScoringPeriod?.entries;
+      if (!ma || !mh) { const d = await fflFetch(['mRoster', 'mTeam'], week); const t = {}; (d.teams || []).forEach(x => t[x.id] = x); ma = ma || t[a.id]?.roster?.entries; mh = mh || t[h.id]?.roster?.entries; }
+      const pts = s => Number(s?.totalPointsLive ?? s?.totalPoints ?? 0).toFixed(1);
+      let live = { html: '', games: null, gameTxt: null };
+      try { live = await fflLiveHTML(ma, mh, week, a, h, mine); } catch (e) { /* NFL schedule unavailable — show lineups only */ }
+      if (!ctx.alive) return;
+      const y = ctx.body.scrollTop;
+      ctx.body.innerHTML = `<div class="fm-head">${img(a.logo, 'logo lg')}<b>${pts(m.away)}</b><span>–</span><b>${pts(m.home)}</b>${img(h.logo, 'logo lg')}</div>
+        ${live.html}
+        <div class="ln-cols"><div><h4>${esc(fflTeamName(a))}</h4>${fflLineupHTML(ma, week, live.games, live.gameTxt)}</div><div><h4>${esc(fflTeamName(h))}</h4>${fflLineupHTML(mh, week, live.games, live.gameTxt)}</div></div>
+        <p class="src">Big number = points, small = ESPN projection.${live.games && [...live.games.values()].some(g => g.state === 'in') ? ' Updates every minute while games are on.' : ''}</p>`;
+      ctx.body.scrollTop = y;
+      if (live.games && [...live.games.values()].some(g => g.state === 'in') && !ctx.timers.length)
+        ctx.timers.push(setInterval(() => { if (!document.hidden) { clearMem(); draw(true).catch(() => { }); } }, 60000));
+    };
+    ctx.body.onclick = e => {
+      const g = e.target.closest('[data-ev]'); if (g) return openGame('nfl', g.dataset.ev);
+      const b = e.target.closest('[data-ath]'); if (b) openPlayer('nfl', b.dataset.ath);
+    };
+    await draw(false);
   });
 }
 
