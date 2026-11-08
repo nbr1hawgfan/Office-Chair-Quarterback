@@ -32,16 +32,45 @@ function lastFullSeason(lg) {
   if (lg === 'wnba') return m >= 9 ? y : y - 1;
   return m >= 9 ? y : y - 1; // MLB, college baseball & softball
 }
-async function fetchStandings(lg, season) {
-  const base = `${STAND}${LEAGUES[lg].path}/standings`;
-  if (!season) return getJSON(base, 600);
-  const d = await getJSON(`${base}?season=${season}`, 86400);
+const DIV_LG = ['nfl', 'nba', 'mlb', 'nhl'];
+async function fetchStandings(lg, season, level) {
+  const base = `${STAND}${LEAGUES[lg].path}/standings`, lv = level ? `level=${level}` : '';
+  if (!season) return getJSON(base + (lv ? '?' + lv : ''), 600);
+  const d = await getJSON(`${base}?season=${season}${lv ? '&' + lv : ''}`, 86400);
   if (flattenStandings(d).length) return d;
-  return getJSON(`${base}?season=${season}&seasontype=2`, 86400);
+  return getJSON(`${base}?season=${season}&seasontype=2${lv ? '&' + lv : ''}`, 86400);
+}
+const stOf = (e, n) => (e.stats || []).find(x => x.name === n);
+const stNumOf = (e, n) => { const v = Number(stOf(e, n)?.value); return isNaN(v) ? null : v; };
+/* Division order: hockey by points, everyone else by win % (then wins) */
+function sortStanding(entries, sport) {
+  const key = sport === 'hockey' ? 'points' : 'winPercent';
+  if (!entries.some(e => stNumOf(e, key) != null)) return entries;
+  return entries.map((e, i) => ({ e, i })).sort((a, b) => (stNumOf(b.e, key) ?? -1) - (stNumOf(a.e, key) ?? -1) || (stNumOf(b.e, 'wins') ?? 0) - (stNumOf(a.e, 'wins') ?? 0) || a.i - b.i).map(x => x.e);
+}
+function recordOf(e, sport) {
+  const w = stOf(e, 'wins')?.displayValue, l = stOf(e, 'losses')?.displayValue;
+  if (w == null || l == null) return stOf(e, 'overall')?.displayValue || '';
+  const t = sport === 'hockey' ? stOf(e, 'otLosses')?.displayValue : stOf(e, 'ties')?.displayValue;
+  return `${w}-${l}${t && t !== '0' ? '-' + t : sport === 'hockey' && t ? '-' + t : ''}`;
+}
+/* Share a division/conference table as an image */
+function shareStandings(lg, g, sport, season) {
+  const cols = sport === 'hockey' ? ['REC', 'PTS'] : sport === 'football' ? ['REC', 'PCT', 'STRK'] : ['REC', 'PCT', 'GB'];
+  const rows = g.entries.map(e => {
+    const t = e.team || {};
+    const vals = sport === 'hockey' ? [recordOf(e, sport), stOf(e, 'points')?.displayValue]
+      : sport === 'football' ? [recordOf(e, sport), stOf(e, 'winPercent')?.displayValue, stOf(e, 'streak')?.displayValue]
+      : [recordOf(e, sport), stOf(e, 'winPercent')?.displayValue, stOf(e, 'gamesBehind')?.displayValue];
+    return { logo: logoOf(t), ab: t.abbreviation || '', name: t.shortDisplayName || t.displayName || '', color: t.color, vals, fav: Prefs.isFav(lg, t.id) };
+  }).slice(0, 12);
+  const lead = rows[0]?.name || '';
+  ShareCard.shareTable({ title: g.name, sub: `${LEAGUES[lg].short} STANDINGS · ${season ? seasonLabel(lg, season) + ' FINAL' : fmtDay(new Date()).toUpperCase()}`, cols, rows,
+    by: Prefs.get().fan || '', file: g.name, text: lead ? `👑 The ${lead} sit on top of the ${g.name}` : g.name, away: { ab: '' }, home: { ab: '' } });
 }
 function openStandings() {
   Sheets.open('Standings', ctx => {
-    let lg = LS.get('standLg', 'cfb'), season = '';
+    let lg = LS.get('standLg', 'cfb'), season = '', groups = [], sport = '';
     ctx.body.innerHTML = lgChipsHTML(LEAGUE_ORDER, lg, 'stLg') + '<div id="stSeason"></div><div id="stBody"></div>';
     const body = qs('#stBody', ctx.body), seasonEl = qs('#stSeason', ctx.body);
     const drawSeasons = () => {
@@ -53,29 +82,43 @@ function openStandings() {
       body.innerHTML = loadingHTML();
       try {
         const L = LEAGUES[lg];
-        const d = await fetchStandings(lg, season);
-        const groups = flattenStandings(d);
+        const hasDiv = DIV_LG.includes(lg);
+        let view = hasDiv ? LS.get('standView:' + lg, 'div') : 'conf';
+        let d = await fetchStandings(lg, season, view === 'div' ? 3 : 0);
+        groups = flattenStandings(d);
+        if (view === 'div' && groups.length <= 2) { // ESPN didn't split into divisions — show conferences instead
+          const conf = await fetchStandings(lg, season, 0); const cg = flattenStandings(conf);
+          if (cg.length) { d = conf; groups = cg; view = 'conf'; }
+        }
         if (!groups.length) { body.innerHTML = emptyHTML(season ? `ESPN doesn't have ${seasonLabel(lg, season)} ${L.short} standings — try a more recent year.` : 'Standings not available yet this season.'); return; }
-        const sport = L.path.split('/')[0];
-        let gi = LS.get('standGroup:' + lg, null);
-        if (gi == null || !groups[gi]) { gi = L.college ? Math.max(0, groups.findIndex(g => /southeastern|sec/i.test(g.name))) : -1; }
+        sport = L.path.split('/')[0];
+        if (view === 'div') groups.forEach(g => { g.entries = sortStanding(g.entries, sport); });
+        const myIdx = groups.map((g, i) => g.entries.some(e => Prefs.isFav(lg, e.team?.id)) ? i : -1).filter(i => i >= 0);
+        const gKey = 'standGroup:' + lg + ':' + view;
+        let gi = LS.get(gKey, null);
+        if (gi == null || (gi >= 0 && !groups[gi]) || (gi === -2 && !myIdx.length)) { gi = L.college ? Math.max(0, groups.findIndex(g => /southeastern|sec/i.test(g.name))) : myIdx.length && view === 'div' ? -2 : -1; }
         const drawGroup = () => {
-          const show = gi === -1 ? groups : [groups[gi]];
-          body.innerHTML = `<select class="sel" id="stG">${!L.college ? `<option value="-1">All</option>` : ''}${groups.map((g, i) => `<option value="${i}" ${i === gi ? 'selected' : ''}>${esc(g.name)}</option>`).join('')}</select>` +
+          const show = gi === -1 ? groups : gi === -2 ? myIdx.map(i => groups[i]) : [groups[gi]];
+          body.innerHTML = (hasDiv ? `<div class="seg small" id="stView"><button data-v="div" class="${view === 'div' ? 'on' : ''}">🏆 Divisions</button><button data-v="conf" class="${view === 'conf' ? 'on' : ''}">Conferences</button></div>` : '') +
+            `<select class="sel" id="stG">${myIdx.length && !L.college ? `<option value="-2" ${gi === -2 ? 'selected' : ''}>⭐ My teams' ${view === 'div' ? 'divisions' : 'conferences'}</option>` : ''}${!L.college ? `<option value="-1" ${gi === -1 ? 'selected' : ''}>All</option>` : ''}${groups.map((g, i) => `<option value="${i}" ${i === gi ? 'selected' : ''}>${esc(g.name)}</option>`).join('')}</select>` +
             show.map(g => {
               const sample = g.entries[0]?.stats || [];
               let cols = (STAND_COLS[sport] || []).map(n => sample.find(s => s.name === n)).filter(Boolean);
               if (L.college) { const conf = sample.find(s => /conf/i.test(s.name || '') || /CONF/i.test(s.abbreviation || '')); if (conf) cols.splice(2, 0, conf); }
               if (!cols.length) cols = sample.slice(0, 5);
               const sorted = [...g.entries];
-              return `<h3 class="sec-h">${esc(g.name)}</h3><div class="tbl-wrap"><table class="stats stand"><tr><th>Team</th>${cols.map(c => `<th>${esc(c.abbreviation || c.shortDisplayName || c.name)}</th>`).join('')}</tr>
+              return `<h3 class="sec-h st-h">${esc(g.name)}<button class="icon-btn st-share" data-share="${groups.indexOf(g)}" title="Share this table">📤</button></h3><div class="tbl-wrap"><table class="stats stand"><tr><th>Team</th>${cols.map(c => `<th>${esc(c.abbreviation || c.shortDisplayName || c.name)}</th>`).join('')}</tr>
                 ${sorted.map(e => { const t = e.team || {}; const fav = Prefs.isFav(lg, t.id);
                   return `<tr class="${fav ? 'favrow' : ''}" data-team="${t.id}"><td class="rl">${img(logoOf(t), 'logo xs')}${esc(t.shortDisplayName || t.displayName || '')}</td>${cols.map(c => { const s = (e.stats || []).find(x => x.name === c.name) || {}; return `<td>${esc(s.displayValue ?? '')}</td>`; }).join('')}</tr>`; }).join('')}</table></div>`;
             }).join('');
-          qs('#stG', body).onchange = ev => { gi = Number(ev.target.value); LS.set('standGroup:' + lg, gi); drawGroup(); };
+          qs('#stG', body).onchange = ev => { gi = Number(ev.target.value); LS.set(gKey, gi); drawGroup(); };
         };
         drawGroup();
-        body.onclick = e => { const r = e.target.closest('tr[data-team]'); if (r) openTeam(lg, r.dataset.team); };
+        body.onclick = e => {
+          const v = e.target.closest('#stView button'); if (v) { if (v.dataset.v !== view) { LS.set('standView:' + lg, v.dataset.v); load(); } return; }
+          const sh = e.target.closest('[data-share]'); if (sh) return shareStandings(lg, groups[sh.dataset.share], sport, season);
+          const r = e.target.closest('tr[data-team]'); if (r) openTeam(lg, r.dataset.team);
+        };
       } catch (e) { body.innerHTML = errHTML(e); }
     };
     bindChips(ctx.body, 'stLg', k => { lg = k; LS.set('standLg', k); season = ''; drawSeasons(); load(); });
@@ -281,4 +324,27 @@ function renderMore(view) {
   ];
   view.innerHTML = `<div class="menu">${items.map((it, i) => `<button class="menu-item" data-i="${i}"><span class="mi-ico">${it[0]}</span><span><b>${esc(it[1])}</b><small>${esc(it[2])}</small></span><i>›</i></button>`).join('')}</div>`;
   view.onclick = e => { const b = e.target.closest('[data-i]'); if (b) items[b.dataset.i][3](); };
+}
+
+/* 🏆 Division tab on pro team pages: just this team's division, sorted, with a share button */
+async function teamDivisionTab(body, lg, t) {
+  const sport = LEAGUES[lg].path.split('/')[0];
+  const groups = flattenStandings(await fetchStandings(lg, '', 3));
+  const g = groups.find(x => x.entries.some(e => String(e.team?.id) === String(t.id)));
+  if (!g) { body.innerHTML = emptyHTML('Division standings aren\'t available right now.'); return; }
+  g.entries = sortStanding(g.entries, sport);
+  const sample = g.entries[0]?.stats || [];
+  const cols = (STAND_COLS[sport] || []).map(n => sample.find(s => s.name === n)).filter(Boolean);
+  const me = g.entries.findIndex(e => String(e.team?.id) === String(t.id));
+  const leader = g.entries[0]?.team || {};
+  const gb = stOf(g.entries[me], 'gamesBehind')?.displayValue;
+  body.innerHTML = `<div class="ti-hero ${me === 0 ? '' : 'dry'}"><small>${esc(g.name)}</small><b>${me === 0 ? '👑 1st' : ordinal(me + 1)}</b><span>${me === 0 ? 'Leading the division' : `${esc(leader.shortDisplayName || '')} lead${gb && gb !== '-' && gb !== '0' ? ` · ${esc(gb)} GB` : ''}`} · ${esc(recordOf(g.entries[me], sport))}</span></div>
+    <h3 class="sec-h st-h">${esc(g.name)}<button class="icon-btn st-share" data-share="1" title="Share this table">📤</button></h3>
+    <div class="tbl-wrap"><table class="stats stand"><tr><th>Team</th>${cols.map(c => `<th>${esc(c.abbreviation || c.shortDisplayName || c.name)}</th>`).join('')}</tr>
+    ${g.entries.map((e, i) => { const tm = e.team || {};
+      return `<tr class="${String(tm.id) === String(t.id) || Prefs.isFav(lg, tm.id) ? 'favrow' : ''}" data-team="${tm.id}"><td class="rl">${i === 0 ? '👑 ' : ''}${img(logoOf(tm), 'logo xs')}${esc(tm.shortDisplayName || tm.displayName || '')}</td>${cols.map(c => `<td>${esc(stOf(e, c.name)?.displayValue ?? '')}</td>`).join('')}</tr>`; }).join('')}</table></div>`;
+  body.onclick = e => {
+    if (e.target.closest('[data-share]')) return shareStandings(lg, g, sport, '');
+    const r = e.target.closest('tr[data-team]'); if (r && r.dataset.team !== String(t.id)) openTeam(lg, r.dataset.team);
+  };
 }

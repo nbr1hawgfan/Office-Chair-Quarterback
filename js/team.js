@@ -115,6 +115,7 @@ async function renderTeamPage(root, lg, id, setTitle, startTab) {
   if (L.college) tabs.push({ k: 'nil', label: '💰 NIL' });
   if (TITLE_LG.includes(lg)) tabs.splice(lg === 'cfb' ? tabs.findIndex(x => x.k === 'history') + 1 || tabs.length : 1, 0, { k: 'titles', label: '🏆 Titles' });
   if (STATS_LG.includes(lg)) tabs.splice(1, 0, { k: 'ranks', label: '📈 Stat Ranks' });
+  if (DIV_LG.includes(lg)) tabs.splice(1, 0, { k: 'div', label: '🏆 Division' });
   const wrap = document.createElement('div'); root.appendChild(wrap);
   subTabs(wrap, tabs, (k, body) => {
     if (k === 'sched') return teamSchedule(body, lg, t);
@@ -127,6 +128,7 @@ async function renderTeamPage(root, lg, id, setTitle, startTab) {
     if (k === 'nil') return teamNIL(body, lg, t);
     if (k === 'ranks') return teamRanks(body, lg, t);
     if (k === 'titles') return teamTitlesTab(body, lg, t);
+    if (k === 'div') return teamDivisionTab(body, lg, t);
   }, tabs.some(x => x.k === startTab) ? startTab : null);
 }
 

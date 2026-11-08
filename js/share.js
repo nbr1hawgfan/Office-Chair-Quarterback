@@ -90,13 +90,48 @@ const ShareCard = {
       text: done ? `${a.ab} ${a.score}, ${h.ab} ${h.score} — Final` : live ? `${a.ab} ${a.score}, ${h.ab} ${h.score} — ${st.shortDetail || 'Live'}` : `${a.ab} @ ${h.ab} — ${fmtDay(comp.date)} ${fmtTime(comp.date)}${tv ? ' on ' + tv : ''}`
     };
   },
-  async share(o) {
+  /* Division / conference table card. o = { title, sub, cols:[label], rows:[{ logo, ab, name, color, vals:[], fav }], lg, by } */
+  async drawTable(o) {
+    const W = 1080, top = 250, rowH = Math.max(96, Math.min(150, Math.floor((1080 - top - 150) / Math.max(1, o.rows.length)))), H = Math.max(1080, top + o.rows.length * rowH + 150);
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const c = cv.getContext('2d');
+    try { await document.fonts?.load?.('800 40px Oswald'); } catch (e) { }
+    const lead = this.hex(o.rows[0]?.color, '#333');
+    let g = c.createLinearGradient(0, 0, W, H); g.addColorStop(0, this.dark(lead, .75)); g.addColorStop(.55, '#111418'); g.addColorStop(1, '#0b0d10');
+    c.fillStyle = g; c.fillRect(0, 0, W, H);
+    c.textAlign = 'center'; c.fillStyle = 'rgba(255,255,255,.8)'; c.font = '700 32px Inter, Arial, sans-serif'; c.fillText(o.sub, W / 2, 80);
+    c.fillStyle = '#fff'; c.font = this.fit(c, o.title.toUpperCase(), W - 120, 76); c.fillText(o.title.toUpperCase(), W / 2, 160);
+    // column headers
+    const colX = o.cols.map((_, i) => W - 70 - (o.cols.length - 1 - i) * 118);
+    c.font = '800 26px Inter, Arial, sans-serif'; c.fillStyle = 'rgba(255,255,255,.6)';
+    o.cols.forEach((l, i) => c.fillText(l, colX[i], top - 22));
+    const logos = await Promise.all(o.rows.map(r => this.loadImg(r.logo)));
+    o.rows.forEach((r, i) => {
+      const y = top + i * rowH;
+      if (r.fav) { c.fillStyle = 'rgba(255,212,0,.16)'; this.round(c, 30, y + 6, W - 60, rowH - 12, 18); c.fill(); }
+      else if (i % 2 === 0) { c.fillStyle = 'rgba(255,255,255,.05)'; this.round(c, 30, y + 6, W - 60, rowH - 12, 18); c.fill(); }
+      c.textAlign = 'center'; c.fillStyle = i === 0 ? '#ffd400' : 'rgba(255,255,255,.7)'; c.font = '800 38px Oswald, Inter, Arial, sans-serif';
+      c.fillText(i === 0 ? '👑' : String(i + 1), 78, y + rowH / 2 + 13);
+      if (logos[i]) c.drawImage(logos[i], 120, y + (rowH - 68) / 2, 68, 68);
+      else { c.fillStyle = this.hex(r.color, '#555'); c.beginPath(); c.arc(154, y + rowH / 2, 32, 0, 7); c.fill(); c.fillStyle = '#fff'; c.font = '800 22px Inter, Arial, sans-serif'; c.fillText(r.ab.slice(0, 4), 154, y + rowH / 2 + 8); }
+      c.textAlign = 'left'; c.fillStyle = '#fff';
+      c.font = this.fit(c, r.name, colX[0] - 300, 44, r.fav ? 800 : 700, 'Inter, Arial, sans-serif'); c.fillText(r.name, 210, y + rowH / 2 + 15);
+      c.textAlign = 'center'; c.font = '700 36px Inter, Arial, sans-serif';
+      r.vals.forEach((v, k) => { c.fillStyle = k === 0 ? '#fff' : 'rgba(255,255,255,.85)'; c.fillText(String(v ?? ''), colX[k], y + rowH / 2 + 13); });
+    });
+    c.font = '800 28px Inter, Arial, sans-serif'; c.fillStyle = 'rgba(255,255,255,.7)'; c.textAlign = 'right';
+    c.fillText('🏈 OFFICE CHAIR QB', W - 40, H - 34);
+    if (o.by) { c.textAlign = 'left'; c.fillText('via ' + o.by, 40, H - 34); }
+    return cv;
+  },
+  async shareTable(o) { return this.share(o, () => this.drawTable(o)); },
+  async share(o, build) {
     toast('Making your share card…');
-    const cv = await this.draw(o);
+    const cv = await (build ? build() : this.draw(o));
     let blob = null;
     try { blob = await new Promise(r => cv.toBlob(r, 'image/png')); } catch (e) { blob = null; }
     if (!blob) { toast('Couldn\'t build the image on this device', 3500); return; }
-    const name = (o.away.ab + '-' + o.home.ab).replace(/[^\w-]/g, '') + '.png';
+    const name = (o.file || (o.away.ab + '-' + o.home.ab)).replace(/[^\w-]/g, '') + '.png';
     const file = new File([blob], name, { type: 'image/png' });
     const text = o.text + ' 🏈 via Office Chair QB';
     try {
